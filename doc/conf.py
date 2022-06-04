@@ -81,6 +81,9 @@ html_context = {
     "conf_py_path": "doc/",
     "source_suffix": '.rst',
 }
+html_theme_options = {
+    'collapse_navigation': False,
+}
 
 
 # If true, an OpenSearch description file will be output, and all pages will
