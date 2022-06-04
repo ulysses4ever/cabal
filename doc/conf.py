@@ -84,6 +84,10 @@ html_context = {
 html_theme_options = {
     'collapse_navigation': False,
 }
+if on_rtd:  # only import and set the theme if we're building docs locally
+    html_theme = 'sphinx_rtd_theme'
+    html_style = None
+    using_rtd_theme = True
 
 
 # If true, an OpenSearch description file will be output, and all pages will
