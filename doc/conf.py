@@ -81,9 +81,12 @@ html_context = {
     "conf_py_path": "doc/",
     "source_suffix": '.rst',
 }
+html_theme = 'sphinx_rtd_theme'
+html_style = None
 html_theme_options = {
     'collapse_navigation': False,
 }
+using_rtd_theme = True
 
 
 # If true, an OpenSearch description file will be output, and all pages will
