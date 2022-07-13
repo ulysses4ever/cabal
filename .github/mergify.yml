@@ -10,7 +10,7 @@ pull_request_rules:
     name: Put pull requests in the rebase+merge queue
     conditions:
       - label=merge me
-      - updated-at>=01:00:00 ago
+      - updated-at<00:30 ago
   # merge+squash strategy
   - actions:
       queue:
