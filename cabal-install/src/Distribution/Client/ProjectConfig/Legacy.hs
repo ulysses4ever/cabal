@@ -491,7 +491,7 @@ convertLegacyAllPackageFlags globalFlags configFlags configExFlags installFlags 
       globalRemoteRepos       = projectConfigRemoteRepos,
       globalLocalNoIndexRepos = projectConfigLocalNoIndexRepos,
       globalActiveRepos       = projectConfigActiveRepos,
-      globalProgPathExtra     = projectConfigProgPathExtra,
+      globalProgPathExtra     = projectConfigProgPathExtra1,
       globalStoreDir          = projectConfigStoreDir
     } = globalFlags
 
@@ -500,7 +500,7 @@ convertLegacyAllPackageFlags globalFlags configFlags configExFlags installFlags 
       configHcFlavor            = projectConfigHcFlavor,
       configHcPath              = projectConfigHcPath,
       configHcPkg               = projectConfigHcPkg,
-    --configProgramPathExtra    = projectConfigProgPathExtra DELETE ME
+      configProgramPathExtra    = projectConfigProgPathExtra2,
     --configInstallDirs         = projectConfigInstallDirs,
     --configUserInstall         = projectConfigUserInstall,
       configPackageDBs          = projectConfigPackageDBs
@@ -542,6 +542,8 @@ convertLegacyAllPackageFlags globalFlags configFlags configExFlags installFlags 
         { flagProjectFileName = projectConfigProjectFile
         , flagIgnoreProject   = projectConfigIgnoreProject
         } = projectFlags
+
+    projectConfigProgPathExtra = projectConfigProgPathExtra1 <> projectConfigProgPathExtra2
 
 -- | Helper used by other conversion functions that returns the
 -- 'PackageConfig' subset of the 'ProjectConfig'.
