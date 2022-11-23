@@ -343,7 +343,7 @@ rebuildProjectConfig verbosity
           localPackages <- phaseReadLocalPackages (projectConfig <> cliConfig)
           return (projectConfig, localPackages)
 
-    info verbosity
+    notice verbosity
       $ unlines
       $ ("this build was affected by the following (project) config files:" :)
       $ [ "- " ++ path
