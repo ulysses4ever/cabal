@@ -136,8 +136,8 @@ jobs:
              # see https://github.com/actions/virtual-environments/issues/2619#issuecomment-788397841
              sudo /usr/sbin/purge
           fi
-          tar -cvf cabal-head.tar -C $(dirname "$CABAL_EXEC") $(basename "$CABAL_EXEC")
-          echo "CABAL_EXEC_TAR=cabal-head.tar" >> $GITHUB_ENV
+          tar -cvf cabal.tar -C $(dirname "$CABAL_EXEC") $(basename "$CABAL_EXEC")
+          echo "CABAL_EXEC_TAR=cabal.tar" >> $GITHUB_ENV
 
       # We upload the cabal executable built with the ghc used in the release for:
       # - Reuse it in the dogfooding job (although we could use the cached build dir)
@@ -146,7 +146,7 @@ jobs:
         if: matrix.ghc == env.GHC_FOR_RELEASE
         uses: actions/upload-artifact@v3
         with:
-          name: cabal-${{ runner.os }}-${{ matrix.ghc }}
+          name: cabal-${{ runner.os }}-x86_64
           path: ${{ env.CABAL_EXEC_TAR }}
 
       - name: Validate lib-tests
@@ -284,6 +284,36 @@ jobs:
       # This way we check cabal can build all its dependencies
       - name: Build using cabal HEAD
         run: sh validate.sh ${{ env.COMMON_FLAGS }} --with-cabal ./cabal-head/cabal -s build
+
+  prerelease-head:
+    runs-on: ubuntu-latest
+    needs: [validate]
+    if: github.ref == 'refs/heads/master'
+
+    steps:
+    - uses: actions/download-artifact@v2
+      with:
+        name: cabal-Windows-x86_64
+
+    - uses: actions/download-artifact@v2
+      with:
+        name: cabal-Linux-x86_64
+
+    - uses: actions/download-artifact@v2
+      with:
+        name: cabal-macOS-x86_64
+
+    - name: Create GitHub prerelease
+      uses: "marvinpinto/action-automatic-releases@v1.2.1"
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "head"
+        prerelease: true
+        title: "head"
+        files: |
+          cabal-Windows-x86_64
+          cabal-Linux-x86_64
+          cabal-macOS-x86_64
 
   # We use this job as a summary of the workflow
   # It will fail if any of the previous jobs does it
