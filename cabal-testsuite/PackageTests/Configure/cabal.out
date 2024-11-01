@@ -1,5 +1,6 @@
 # cabal v2-build
-Resolving dependencies...
+Configuration is affected by the following files:
+- cabal.projectResolving dependencies...
 Build profile: -w ghc-<GHCVER> -O1
 In order, the following will be built:
  - zlib-1.1 (lib:zlib) (first run)
