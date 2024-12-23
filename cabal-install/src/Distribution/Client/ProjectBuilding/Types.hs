@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
 
 -- | Types for the "Distribution.Client.ProjectBuilding"
 --
@@ -156,7 +155,7 @@ data BuildFailure = BuildFailure
   { buildFailureLogFile :: Maybe FilePath
   , buildFailureReason :: BuildFailureReason
   }
-  deriving (Show, Typeable)
+  deriving (Show)
 
 instance Exception BuildFailure
 
