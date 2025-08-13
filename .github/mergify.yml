@@ -26,6 +26,10 @@ priority_rules:
       - 'label!=backport'
     priority: 2750
 
+  - name: priority for queue `default`
+    conditions:
+      - queue-name=default
+    priority: 2250
 pull_request_rules:
 
   # implementing PR delay logic: apply a label after 2 days of inactivity
