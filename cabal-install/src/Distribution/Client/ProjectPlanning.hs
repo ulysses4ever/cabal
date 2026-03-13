@@ -1766,7 +1766,6 @@ elaborateInstallPlan
                   -- on the main library for configured data.
                   PD.Custom -> [CuzBuildType CuzCustomBuildType]
                   PD.Hooks -> [CuzBuildType CuzHooksBuildType]
-                  PD.Make -> [CuzBuildType CuzMakeBuildType]
                   PD.Simple -> []
               -- cabal-format versions prior to 1.8 have different build-depends semantics
               -- for now it's easier to just fallback to legacy-mode when specVersion < 1.8

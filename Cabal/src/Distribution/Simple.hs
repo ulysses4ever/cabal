@@ -37,10 +37,6 @@ libraries/Cabal/Distribution/Simple.hs:78:0:
 -- This module isn't called \"Simple\" because it's simple.  Far from
 -- it.  It's called \"Simple\" because it does complicated things to
 -- simple software.
---
--- The original idea was that there could be different build systems that all
--- presented the same compatible command line interfaces. There is still a
--- "Distribution.Make" system but in practice no packages use it.
 module Distribution.Simple
   ( module Distribution.Package
   , module Distribution.Version

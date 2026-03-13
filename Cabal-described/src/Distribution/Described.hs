@@ -357,7 +357,7 @@ instance Described BenchmarkType where
     describe _ = "exitcode-stdio-1.0"
 
 instance Described BuildType where
-    describe _ = REUnion ["Simple","Configure","Custom","Hooks","Make","Default"]
+    describe _ = REUnion ["Simple","Configure","Custom","Hooks","Default"]
 
 instance Described CompilerFlavor where
     describe _ = REUnion
