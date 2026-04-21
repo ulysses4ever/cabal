@@ -59,6 +59,7 @@ import Distribution.Simple.LocalBuildInfo
 
 import qualified Distribution.Simple.GHC as GHC
 import qualified Distribution.Simple.GHCJS as GHCJS
+import qualified Distribution.Simple.MHS as MHS
 import qualified Distribution.Simple.PackageIndex as Index
 import qualified Distribution.Simple.UHC as UHC
 
@@ -370,6 +371,7 @@ createPackageDB verbosity comp progdb preferCompat dbPath =
     GHC -> HcPkg.init (GHC.hcPkgInfo progdb) verbosity preferCompat dbPath
     GHCJS -> HcPkg.init (GHCJS.hcPkgInfo progdb) verbosity False dbPath
     UHC -> return ()
+    MHS -> return ()
     _ -> dieWithException verbosity CreatePackageDB
 
 doesPackageDBExist :: FilePath -> IO Bool
@@ -434,6 +436,7 @@ registerPackage verbosity comp progdb mbWorkDir packageDbs installedPkgInfo regi
   case compilerFlavor comp of
     GHC -> GHC.registerPackage verbosity progdb mbWorkDir packageDbs installedPkgInfo registerOptions
     GHCJS -> GHCJS.registerPackage verbosity progdb mbWorkDir packageDbs installedPkgInfo registerOptions
+    MHS -> MHS.registerPackage verbosity mbWorkDir comp progdb packageDbs installedPkgInfo
     _
       | HcPkg.registerMultiInstance registerOptions ->
           dieWithException verbosity RegisMultiplePkgNotSupported
