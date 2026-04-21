@@ -93,7 +93,7 @@ concurrentUpdateConfig :: Assertion
 concurrentUpdateConfig = bracketTest $ \configFile -> do
   _ <- createDefaultConfigFile (mkVerbosity defaultVerbosityHandles silent) [] configFile
 
-  doneVars <- replicateM 16 newEmptyMVar
+  doneVars <- replicateM numConcurrentUpdates newEmptyMVar
   mapM_
     ( \doneVar ->
         forkIO $ do
@@ -105,6 +105,7 @@ concurrentUpdateConfig = bracketTest $ \configFile -> do
   results <- mapM takeMVar doneVars
   assertBool "Concurrent userConfigUpdate should not throw" (all isSuccess results)
   where
+    numConcurrentUpdates = 16 :: Int
     isSuccess (Right ()) = True
     isSuccess _ = False
 
