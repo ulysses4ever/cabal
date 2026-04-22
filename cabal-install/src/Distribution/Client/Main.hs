@@ -184,7 +184,6 @@ import Distribution.PackageDescription
 
 import Distribution.Client.Errors
 import Distribution.Compat.ResponseFile
-import qualified Distribution.Make as Make
 import Distribution.PackageDescription.PrettyPrint
   ( writeGenericPackageDescription
   )
@@ -1565,7 +1564,6 @@ actAsSetupAction actAsSetupFlags args _globalFlags =
             Simple.autoconfSetupHooks
             defaultVerbosityHandles
             args
-        Make -> Make.defaultMainArgs args
         Hooks -> error "actAsSetupAction Hooks"
         Custom -> error "actAsSetupAction Custom"
 

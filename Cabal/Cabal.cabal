@@ -103,7 +103,6 @@ library
     Distribution.Compat.Stack
     Distribution.Compat.SysInfo
     Distribution.Compat.Time
-    Distribution.Make
     Distribution.PackageDescription.Check
     Distribution.ReadE
     Distribution.Simple

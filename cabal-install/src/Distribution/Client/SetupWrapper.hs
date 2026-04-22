@@ -36,7 +36,6 @@ import Prelude ()
 
 import qualified Distribution.Backpack as Backpack
 import Distribution.CabalSpecVersion (cabalSpecMinimumLibraryVersion)
-import qualified Distribution.Make as Make
 import Distribution.Package
   ( ComponentId
   , PackageId
@@ -310,7 +309,7 @@ data SetupScriptOptions = SetupScriptOptions
     -- ('$XDG_CACHE_HOME/cabal/setup-exe-cache'). For each (compiler, platform, Cabal
     -- version) combination the cache holds a compiled setup script
     -- executable. This only affects the Simple build type; for the Custom,
-    -- Configure and Make build types we always compile the setup script anew.
+    -- Configure and Hooks build types we always compile the setup script anew.
     setupCacheLock :: Maybe Lock
   , isInteractive :: Bool
   -- ^ Is the task we are going to run an interactive foreground task,
@@ -569,8 +568,6 @@ buildTypeAction verbHandles = \ case
     Simple.defaultMainArgsWithHandles verbHandles
   Configure ->
     Simple.defaultMainWithSetupHooksArgs Simple.autoconfSetupHooks verbHandles
-  Make ->
-    Make.defaultMainArgsWithHandles verbHandles
   Hooks ->
     error "buildTypeAction Hooks"
   Custom ->
@@ -734,7 +731,7 @@ getExternalSetupMethod verbosity options pkg bt = do
     platform = fromMaybe buildPlatform (usePlatform options)
 
     useCachedSetupExecutable =
-      bt == Simple || bt == Configure || bt == Make
+      bt == Simple || bt == Configure
 
     maybeGetInstalledPackages
       :: SetupScriptOptions
@@ -879,7 +876,6 @@ getExternalSetupMethod verbosity options pkg bt = do
         -> "import Distribution.Simple; main = defaultMainWithHooks autoconfUserHooks\n"
         | otherwise
         -> "import Distribution.Simple; main = defaultMainWithHooks defaultUserHooks\n"
-      Make -> "import Distribution.Make; main = defaultMain\n"
       Hooks
         | cabalLibVersion >= mkVersion [3, 13, 0]
         -> "import Distribution.Simple; import SetupHooks; main = defaultMainWithSetupHooks setupHooks\n"

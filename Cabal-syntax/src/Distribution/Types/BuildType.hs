@@ -25,8 +25,6 @@ data BuildType
     -- which invokes @configure@ to generate additional build
     -- information used by later phases.
     Configure
-  | -- | calls @Distribution.Make.defaultMain@
-    Make
   | -- | uses user-supplied @Setup.hs@ or @Setup.lhs@ (default)
     Custom
   | Hooks
@@ -37,7 +35,7 @@ instance Structured BuildType
 instance NFData BuildType where rnf = genericRnf
 
 knownBuildTypes :: [BuildType]
-knownBuildTypes = [Simple, Configure, Make, Custom, Hooks]
+knownBuildTypes = [Simple, Configure, Custom, Hooks]
 
 instance Pretty BuildType where
   pretty = Disp.text . show
@@ -49,7 +47,7 @@ instance Parsec BuildType where
       "Simple" -> return Simple
       "Configure" -> return Configure
       "Custom" -> return Custom
-      "Make" -> return Make
+      "Make" -> fail "build-type: Make is no longer supported. See https://github.com/haskell/cabal/issues/11610"
       "Hooks" -> do
         v <- askCabalSpecVersion
         if v >= CabalSpecV3_14
