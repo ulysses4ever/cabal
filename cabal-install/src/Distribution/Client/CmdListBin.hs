@@ -70,12 +70,12 @@ listbinCommand :: CommandUI (NixStyleFlags ())
 listbinCommand =
   CommandUI
     { commandName = "list-bin"
-    , commandSynopsis = "List the path to a single executable."
+    , commandSynopsis = "List the path to executables."
     , commandUsage = \pname ->
-        "Usage: " ++ pname ++ " list-bin [FLAGS] TARGET\n"
+        "Usage: " ++ pname ++ " list-bin [FLAGS] [TARGET]\n"
     , commandDescription = Just $ \_ ->
         wrapText
-          "List the path to a build product."
+          "List the path to a build product. If no TARGET is given, list the paths for all executables in the project (or the single executable if there is only one)."
     , commandNotes = Nothing
     , commandDefaultFlags = defaultNixStyleFlags ()
     , commandOptions = nixStyleOptions (const [])
@@ -87,14 +87,15 @@ listbinCommand =
 
 listbinAction :: NixStyleFlags () -> [String] -> GlobalFlags -> IO ()
 listbinAction flags args globalFlags = do
-  -- fail early if multiple target selectors specified
-  target <- case args of
-    [] -> dieWithException verbosity NoTargetProvided
-    [x] -> return x
+  -- When no target is specified, use "all" to find all executables.
+  -- Otherwise, a single target must be specified.
+  (targets, allowMultiple) <- case args of
+    [] -> return (["all"], True)
+    [x] -> return ([x], False)
     _ -> dieWithException verbosity OneTargetRequired
 
   -- configure and elaborate target selectors
-  withContextAndSelectors verbosity RejectNoTargets (Just ExeKind) flags [target] globalFlags OtherCommand $ \targetCtx ctx targetSelectors -> do
+  withContextAndSelectors verbosity RejectNoTargets (Just ExeKind) flags targets globalFlags OtherCommand $ \targetCtx ctx targetSelectors -> do
     baseCtx <- case targetCtx of
       ProjectContext -> return ctx
       GlobalContext -> return ctx
@@ -104,7 +105,7 @@ listbinAction flags args globalFlags = do
       runProjectPreBuildPhase verbosity baseCtx $ \elaboratedPlan -> do
         -- Interpret the targets on the command line as build targets
         -- (as opposed to say repl or haddock targets).
-        targets <-
+        targets' <-
           either (reportTargetProblems verbosity) return $
             resolveTargetsFromSolver
               selectPackageTargets
@@ -113,64 +114,96 @@ listbinAction flags args globalFlags = do
               Nothing
               targetSelectors
 
-        -- Reject multiple targets, or at least targets in different
-        -- components. It is ok to have two module/file targets in the
-        -- same component, but not two that live in different components.
+        -- When a specific target is given (not the implicit "all"), reject
+        -- multiple targets, or at least targets in different components.
+        -- It is ok to have two module/file targets in the same component,
+        -- but not two that live in different components.
         --
         -- Note that we discard the target and return the whole 'TargetsMap',
         -- so this check will be repeated (and must succeed) after
         -- the 'runProjectPreBuildPhase'. Keep it in mind when modifying this.
-        _ <-
-          singleComponentOrElse
-            ( reportTargetProblems
-                verbosity
-                [multipleTargetsProblem targets]
-            )
-            targets
+        unless allowMultiple $
+          void $
+            singleComponentOrElse
+              ( reportTargetProblems
+                  verbosity
+                  [multipleTargetsProblem targets']
+              )
+              targets'
 
         let elaboratedPlan' =
               pruneInstallPlanToTargets
                 TargetActionBuild
-                targets
+                targets'
                 elaboratedPlan
-        return (elaboratedPlan', targets)
-
-    (selectedUnitId, selectedComponent) <-
-      -- Slight duplication with 'runProjectPreBuildPhase'.
-      singleComponentOrElse
-        ( dieWithException verbosity ThisIsABug
-        )
-        $ Orchestration.targetsMap buildCtx
+        return (elaboratedPlan', targets')
 
     printPlan verbosity baseCtx buildCtx
 
-    binfiles <- case Map.lookup selectedUnitId $ IP.toMap (elaboratedPlanOriginal buildCtx) of
-      Nothing -> dieWithException verbosity NoOrMultipleTargetsGiven
-      Just gpp ->
-        return $
-          IP.foldPlanPackage
-            (const []) -- IPI don't have executables
-            (elaboratedPackage (Orchestration.distDirLayout baseCtx) (elaboratedShared buildCtx) selectedComponent)
-            gpp
+    if allowMultiple
+      then do
+        -- For the "all" case, collect and print all binary paths.
+        let allComponents = Set.toList . distinctTargetComponents $ Orchestration.targetsMap buildCtx
+        case allComponents of
+          [] -> dieWithException verbosity NoTargetFound
+          _ ->
+            for_ allComponents $ \(unitId, cname) ->
+              case componentNameUnqual cname of
+                Nothing -> return () -- skip library components (shouldn't happen)
+                Just selectedComponent -> do
+                  binfiles <- case Map.lookup unitId $ IP.toMap (elaboratedPlanOriginal buildCtx) of
+                    Nothing -> return []
+                    Just gpp ->
+                      return $
+                        IP.foldPlanPackage
+                          (const []) -- IPI don't have executables
+                          (elaboratedPackage (Orchestration.distDirLayout baseCtx) (elaboratedShared buildCtx) selectedComponent)
+                          gpp
+                  for_ binfiles $ \exe -> putStr $ withOutputMarker (verbosityFlags verbosity) $ exe ++ "\n"
+      else do
+        (selectedUnitId, selectedComponent) <-
+          -- Slight duplication with 'runProjectPreBuildPhase'.
+          singleComponentOrElse
+            ( dieWithException verbosity ThisIsABug
+            )
+            $ Orchestration.targetsMap buildCtx
 
-    case binfiles of
-      [] -> dieWithException verbosity NoTargetFound
-      [exe] -> putStr $ withOutputMarker (verbosityFlags verbosity) $ exe ++ "\n"
-      -- Andreas, 2023-01-13, issue #8400:
-      -- Regular output of `list-bin` should go to stdout unconditionally,
-      -- but for the sake of the testsuite, we want to mark it so it goes
-      -- into the golden value for the test.
-      -- Note: 'withOutputMarker' only checks 'isVerboseMarkOutput',
-      -- thus, we can reuse @verbosity@ here, even if other components
-      -- of @verbosity@ may be wrong (like 'VStderr', verbosity level etc.).
-      -- Andreas, 2023-01-20:
-      -- Appending the newline character here rather than using 'putStrLn'
-      -- because an active 'withOutputMarker' produces text that ends
-      -- in newline characters.
-      _ -> dieWithException verbosity MultipleTargetsFound
+        binfiles <- case Map.lookup selectedUnitId $ IP.toMap (elaboratedPlanOriginal buildCtx) of
+          Nothing -> dieWithException verbosity NoOrMultipleTargetsGiven
+          Just gpp ->
+            return $
+              IP.foldPlanPackage
+                (const []) -- IPI don't have executables
+                (elaboratedPackage (Orchestration.distDirLayout baseCtx) (elaboratedShared buildCtx) selectedComponent)
+                gpp
+
+        case binfiles of
+          [] -> dieWithException verbosity NoTargetFound
+          [exe] -> putStr $ withOutputMarker (verbosityFlags verbosity) $ exe ++ "\n"
+          -- Andreas, 2023-01-13, issue #8400:
+          -- Regular output of `list-bin` should go to stdout unconditionally,
+          -- but for the sake of the testsuite, we want to mark it so it goes
+          -- into the golden value for the test.
+          -- Note: 'withOutputMarker' only checks 'isVerboseMarkOutput',
+          -- thus, we can reuse @verbosity@ here, even if other components
+          -- of @verbosity@ may be wrong (like 'VStderr', verbosity level etc.).
+          -- Andreas, 2023-01-20:
+          -- Appending the newline character here rather than using 'putStrLn'
+          -- because an active 'withOutputMarker' produces text that ends
+          -- in newline characters.
+          _ -> dieWithException verbosity MultipleTargetsFound
   where
     defaultVerbosity = verboseStderr silent
     verbosity = cfgVerbosity defaultVerbosity flags
+
+    -- Extract the unqualified component name from a component name.
+    -- Returns Nothing for library components.
+    componentNameUnqual :: ComponentName -> Maybe UnqualComponentName
+    componentNameUnqual (CExeName n) = Just n
+    componentNameUnqual (CTestName n) = Just n
+    componentNameUnqual (CBenchName n) = Just n
+    componentNameUnqual (CFLibName n) = Just n
+    componentNameUnqual (CLibName _) = Nothing
 
     -- this is copied from
     elaboratedPackage
@@ -240,11 +273,25 @@ singleComponentOrElse action targetsMap =
 --
 -- For the @list-bin@ command we select the exe or flib if there is only one
 -- and it's buildable. Fail if there are no or multiple buildable exe components.
+-- However, when targeting all packages (i.e. no explicit target given), we
+-- allow and return multiple executables so they can all be listed.
 selectPackageTargets
   :: TargetSelector
   -> [AvailableTarget k]
   -> Either ListBinTargetProblem [k]
 selectPackageTargets targetSelector targets
+  -- When targeting all packages (implicit "all" target), allow multiple executables
+  | TargetAllPackages _ <- targetSelector =
+      case (targetsExesBuildable, targetsExeLikesBuildable) of
+        (exes, _) | not (null exes) -> Right exes
+        (_, likes) | not (null likes) -> Right likes
+        _
+          | not (null targetsExeLikes') ->
+              Left (TargetProblemNoneEnabled targetSelector targetsExeLikes')
+        _
+          | not (null targets) ->
+              Left (noComponentsProblem targetSelector)
+        _ -> Left (TargetProblemNoTargets targetSelector)
   -- If there is a single executable component, select that. See #7403
   | [target] <- targetsExesBuildable =
       Right [target]
