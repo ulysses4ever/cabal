@@ -140,10 +140,10 @@ listbinAction flags args globalFlags = do
 
       -- Shared helpers for looking up and printing binary paths.
       let -- Look up the binary file paths for a resolved (unitId, component) pair.
-          -- It is an internal error (ThisIsABug) if the unit is not in the plan.
+          -- If the unit is missing from the plan, that is an internal inconsistency.
           getBinFiles (unitId, component) =
             case Map.lookup unitId $ IP.toMap (elaboratedPlanOriginal buildCtx) of
-              Nothing -> dieWithException verbosity NoOrMultipleTargetsGiven
+              Nothing -> dieWithException verbosity ThisIsABug
               Just gpp ->
                 return $
                   IP.foldPlanPackage
