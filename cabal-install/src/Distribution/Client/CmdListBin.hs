@@ -89,7 +89,7 @@ listbinAction :: NixStyleFlags () -> [String] -> GlobalFlags -> IO ()
 listbinAction flags args globalFlags = do
   -- When no target is specified, use "all" to find all executables.
   -- Otherwise, a single target must be specified.
-  (targets, allowMultiple) <- case args of
+  (targets, noExplicitTarget) <- case args of
     [] -> return (["all"], True)
     [x] -> return ([x], False)
     _ -> dieWithException verbosity OneTargetRequired
@@ -122,7 +122,7 @@ listbinAction flags args globalFlags = do
         -- Note that we discard the target and return the whole 'TargetsMap',
         -- so this check will be repeated (and must succeed) after
         -- the 'runProjectPreBuildPhase'. Keep it in mind when modifying this.
-        unless allowMultiple $
+        unless noExplicitTarget $
           void $
             singleComponentOrElse
               ( reportTargetProblems
@@ -140,7 +140,7 @@ listbinAction flags args globalFlags = do
 
     printPlan verbosity baseCtx buildCtx
 
-    if allowMultiple
+    if noExplicitTarget
       then do
         -- For the "all" case, collect and print all binary paths.
         let allComponents = Set.toList . distinctTargetComponents $ Orchestration.targetsMap buildCtx
@@ -149,7 +149,7 @@ listbinAction flags args globalFlags = do
           _ ->
             for_ allComponents $ \(unitId, cname) ->
               case componentNameUnqual cname of
-                Nothing -> return () -- skip library components (shouldn't happen)
+                Nothing -> return () -- library components are filtered out by selectPackageTargets
                 Just selectedComponent -> do
                   binfiles <- case Map.lookup unitId $ IP.toMap (elaboratedPlanOriginal buildCtx) of
                     Nothing -> return []
@@ -197,7 +197,12 @@ listbinAction flags args globalFlags = do
     verbosity = cfgVerbosity defaultVerbosity flags
 
     -- Extract the unqualified component name from a component name.
-    -- Returns Nothing for library components.
+    -- Returns Nothing for library components (CLibName), which are not
+    -- expected here since 'selectPackageTargets' filters for executables
+    -- and exe-like components (tests, benchmarks, foreign libraries) only.
+    -- The CTestName and CBenchName cases are included because
+    -- 'selectPackageTargets' falls back to them when no pure executables
+    -- are available (see 'targetsExeLikes').
     componentNameUnqual :: ComponentName -> Maybe UnqualComponentName
     componentNameUnqual (CExeName n) = Just n
     componentNameUnqual (CTestName n) = Just n
