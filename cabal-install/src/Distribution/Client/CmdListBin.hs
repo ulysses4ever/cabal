@@ -49,7 +49,7 @@ import Distribution.Simple.BuildPaths (dllExtension, exeExtension)
 import Distribution.Simple.Command (CommandUI (..))
 import Distribution.Simple.Utils (dieWithException, withOutputMarker, wrapText)
 import Distribution.System (Platform)
-import Distribution.Types.ComponentName (showComponentName)
+import Distribution.Types.ComponentName (componentNameString, showComponentName)
 import Distribution.Types.UnitId (UnitId)
 import Distribution.Types.UnqualComponentName (UnqualComponentName)
 import Distribution.Verbosity (silent, verboseStderr, verbosityFlags)
@@ -95,120 +95,102 @@ listbinAction flags args globalFlags = do
     _ -> dieWithException verbosity OneTargetRequired
 
   -- configure and elaborate target selectors
-  withContextAndSelectors verbosity RejectNoTargets (Just ExeKind) flags targets globalFlags OtherCommand $ \targetCtx ctx targetSelectors -> do
-    baseCtx <- case targetCtx of
-      ProjectContext -> return ctx
-      GlobalContext -> return ctx
-      ScriptContext path exemeta -> updateContextAndWriteProjectFile ctx path exemeta
+  withContextAndSelectors verbosity RejectNoTargets (Just ExeKind) flags targets globalFlags OtherCommand $
+    \targetCtx ctx targetSelectors -> do
+      baseCtx <- case targetCtx of
+        ProjectContext -> return ctx
+        GlobalContext -> return ctx
+        ScriptContext path exemeta -> updateContextAndWriteProjectFile ctx path exemeta
 
-    buildCtx <-
-      runProjectPreBuildPhase verbosity baseCtx $ \elaboratedPlan -> do
-        -- Interpret the targets on the command line as build targets
-        -- (as opposed to say repl or haddock targets).
-        targets' <-
-          either (reportTargetProblems verbosity) return $
-            resolveTargetsFromSolver
-              selectPackageTargets
-              selectComponentTarget
-              elaboratedPlan
-              Nothing
-              targetSelectors
-
-        -- When a specific target is given (not the implicit "all"), reject
-        -- multiple targets, or at least targets in different components.
-        -- It is ok to have two module/file targets in the same component,
-        -- but not two that live in different components.
-        --
-        -- Note that we discard the target and return the whole 'TargetsMap',
-        -- so this check will be repeated (and must succeed) after
-        -- the 'runProjectPreBuildPhase'. Keep it in mind when modifying this.
-        unless noExplicitTarget $
-          void $
-            singleComponentOrElse
-              ( reportTargetProblems
-                  verbosity
-                  [multipleTargetsProblem targets']
-              )
-              targets'
-
-        let elaboratedPlan' =
-              pruneInstallPlanToTargets
-                TargetActionBuild
-                targets'
+      buildCtx <-
+        runProjectPreBuildPhase verbosity baseCtx $ \elaboratedPlan -> do
+          -- Interpret the targets on the command line as build targets
+          -- (as opposed to say repl or haddock targets).
+          targets' <-
+            either (reportTargetProblems verbosity) return $
+              resolveTargetsFromSolver
+                selectPackageTargets
+                selectComponentTarget
                 elaboratedPlan
-        return (elaboratedPlan', targets')
+                Nothing
+                targetSelectors
 
-    printPlan verbosity baseCtx buildCtx
+          -- When a specific target is given (not the implicit "all"), reject
+          -- multiple targets, or at least targets in different components.
+          -- It is ok to have two module/file targets in the same component,
+          -- but not two that live in different components.
+          --
+          -- Note that we discard the target and return the whole 'TargetsMap',
+          -- so this check will be repeated (and must succeed) after
+          -- the 'runProjectPreBuildPhase'. Keep it in mind when modifying this.
+          unless noExplicitTarget $
+            void $
+              singleComponentOrElse
+                (reportTargetProblems verbosity [multipleTargetsProblem targets'])
+                targets'
 
-    if noExplicitTarget
-      then do
-        -- For the "all" case, collect and print all binary paths.
-        let allComponents = Set.toList . distinctTargetComponents $ Orchestration.targetsMap buildCtx
-        case allComponents of
-          [] -> dieWithException verbosity NoTargetFound
-          _ ->
-            for_ allComponents $ \(unitId, cname) ->
-              case componentNameUnqual cname of
-                Nothing -> return () -- library components are filtered out by selectPackageTargets
-                Just selectedComponent -> do
-                  binfiles <- case Map.lookup unitId $ IP.toMap (elaboratedPlanOriginal buildCtx) of
-                    Nothing -> return []
-                    Just gpp ->
-                      return $
-                        IP.foldPlanPackage
-                          (const []) -- IPI don't have executables
-                          (elaboratedPackage (Orchestration.distDirLayout baseCtx) (elaboratedShared buildCtx) selectedComponent)
-                          gpp
-                  for_ binfiles $ \exe -> putStr $ withOutputMarker (verbosityFlags verbosity) $ exe ++ "\n"
-      else do
-        (selectedUnitId, selectedComponent) <-
-          -- Slight duplication with 'runProjectPreBuildPhase'.
-          singleComponentOrElse
-            ( dieWithException verbosity ThisIsABug
-            )
-            $ Orchestration.targetsMap buildCtx
+          let elaboratedPlan' =
+                pruneInstallPlanToTargets
+                  TargetActionBuild
+                  targets'
+                  elaboratedPlan
+          return (elaboratedPlan', targets')
 
-        binfiles <- case Map.lookup selectedUnitId $ IP.toMap (elaboratedPlanOriginal buildCtx) of
-          Nothing -> dieWithException verbosity NoOrMultipleTargetsGiven
-          Just gpp ->
-            return $
-              IP.foldPlanPackage
-                (const []) -- IPI don't have executables
-                (elaboratedPackage (Orchestration.distDirLayout baseCtx) (elaboratedShared buildCtx) selectedComponent)
-                gpp
+      printPlan verbosity baseCtx buildCtx
 
-        case binfiles of
-          [] -> dieWithException verbosity NoTargetFound
-          [exe] -> putStr $ withOutputMarker (verbosityFlags verbosity) $ exe ++ "\n"
-          -- Andreas, 2023-01-13, issue #8400:
+      -- Shared helpers for looking up and printing binary paths.
+      let -- Look up the binary file paths for a resolved (unitId, component) pair.
+          -- It is an internal error (ThisIsABug) if the unit is not in the plan.
+          getBinFiles (unitId, component) =
+            case Map.lookup unitId $ IP.toMap (elaboratedPlanOriginal buildCtx) of
+              Nothing -> dieWithException verbosity NoOrMultipleTargetsGiven
+              Just gpp ->
+                return $
+                  IP.foldPlanPackage
+                    (const []) -- IPI don't have executables
+                    (elaboratedPackage (Orchestration.distDirLayout baseCtx) (elaboratedShared buildCtx) component)
+                    gpp
+
+          -- Note [withOutputMarker]:
           -- Regular output of `list-bin` should go to stdout unconditionally,
           -- but for the sake of the testsuite, we want to mark it so it goes
           -- into the golden value for the test.
           -- Note: 'withOutputMarker' only checks 'isVerboseMarkOutput',
           -- thus, we can reuse @verbosity@ here, even if other components
           -- of @verbosity@ may be wrong (like 'VStderr', verbosity level etc.).
-          -- Andreas, 2023-01-20:
           -- Appending the newline character here rather than using 'putStrLn'
           -- because an active 'withOutputMarker' produces text that ends
           -- in newline characters.
-          _ -> dieWithException verbosity MultipleTargetsFound
+          printBinFile exe =
+            putStr $ withOutputMarker (verbosityFlags verbosity) $ exe ++ "\n"
+
+      if noExplicitTarget
+        then do
+          -- No explicit target: print paths for all executable components.
+          -- 'componentNameString' returns Nothing for library components,
+          -- which are excluded by 'selectPackageTargets' for this case anyway.
+          let allComponents =
+                [ (unitId, component)
+                | (unitId, cname) <- Set.toList . distinctTargetComponents $ Orchestration.targetsMap buildCtx
+                , Just component <- [componentNameString cname]
+                ]
+          when (null allComponents) $ dieWithException verbosity NoTargetFound
+          for_ allComponents $ \uc -> getBinFiles uc >>= traverse_ printBinFile
+        else do
+          -- Explicit target: exactly one component expected.
+          selected <-
+            -- Slight duplication with 'runProjectPreBuildPhase'.
+            singleComponentOrElse
+              (dieWithException verbosity ThisIsABug)
+              (Orchestration.targetsMap buildCtx)
+          binfiles <- getBinFiles selected
+          case binfiles of
+            [] -> dieWithException verbosity NoTargetFound
+            [exe] -> printBinFile exe
+            _ -> dieWithException verbosity MultipleTargetsFound
   where
     defaultVerbosity = verboseStderr silent
     verbosity = cfgVerbosity defaultVerbosity flags
-
-    -- Extract the unqualified component name from a component name.
-    -- Returns Nothing for library components (CLibName), which are not
-    -- expected here since 'selectPackageTargets' filters for executables
-    -- and exe-like components (tests, benchmarks, foreign libraries) only.
-    -- The CTestName and CBenchName cases are included because
-    -- 'selectPackageTargets' falls back to them when no pure executables
-    -- are available (see 'targetsExeLikes').
-    componentNameUnqual :: ComponentName -> Maybe UnqualComponentName
-    componentNameUnqual (CExeName n) = Just n
-    componentNameUnqual (CTestName n) = Just n
-    componentNameUnqual (CBenchName n) = Just n
-    componentNameUnqual (CFLibName n) = Just n
-    componentNameUnqual (CLibName _) = Nothing
 
     -- this is copied from
     elaboratedPackage
@@ -266,18 +248,16 @@ listbinAction flags args globalFlags = do
 singleComponentOrElse :: IO (UnitId, UnqualComponentName) -> TargetsMap -> IO (UnitId, UnqualComponentName)
 singleComponentOrElse action targetsMap =
   case Set.toList . distinctTargetComponents $ targetsMap of
-    [(unitId, CExeName component)] -> return (unitId, component)
-    [(unitId, CTestName component)] -> return (unitId, component)
-    [(unitId, CBenchName component)] -> return (unitId, component)
-    [(unitId, CFLibName component)] -> return (unitId, component)
+    [(unitId, cname)] | Just component <- componentNameString cname -> return (unitId, component)
     _ -> action
 
 -- | This defines what a 'TargetSelector' means for the @list-bin@ command.
 -- It selects the 'AvailableTarget's that the 'TargetSelector' refers to,
 -- or otherwise classifies the problem.
 --
--- For the @list-bin@ command we select the exe or flib if there is only one
--- and it's buildable. Fail if there are no or multiple buildable exe components.
+-- For the @list-bin@ command we select the exe (or exe-like: test, bench) if
+-- there is only one and it's buildable. Fail if there are no or multiple
+-- buildable exe components.
 -- However, when targeting all packages (i.e. no explicit target given), we
 -- allow and return multiple executables so they can all be listed.
 selectPackageTargets
