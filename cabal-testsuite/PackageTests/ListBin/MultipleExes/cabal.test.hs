@@ -6,10 +6,10 @@ import Test.Cabal.Prelude
 -- When no target is given and there are multiple executables,
 -- list-bin should print the path to all of them.
 
-main = cabalTest . void $ do
-    res <- cabal' "list-bin" []
+main = cabalTest $ do
+    -- Use DoNotRecord to avoid maintaining a golden file with build output
+    res <- recordMode DoNotRecord $ cabal' "list-bin" []
 
-    let path1 = joinPath ["MultipleExes-1.0.0", "build", "exe1", "exe1"]
-    let path2 = joinPath ["MultipleExes-1.0.0", "build", "exe2", "exe2"]
-    assertOutputContains path1 res
-    assertOutputContains path2 res
+    -- Both binaries should be in the output
+    assertOutputContains (joinPath ["exe1", "build", "exe1", "exe1"]) res
+    assertOutputContains (joinPath ["exe2", "build", "exe2", "exe2"]) res

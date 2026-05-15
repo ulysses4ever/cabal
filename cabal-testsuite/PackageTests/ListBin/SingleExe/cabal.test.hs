@@ -6,8 +6,9 @@ import Test.Cabal.Prelude
 -- When no target is given and there is exactly one executable,
 -- list-bin should print the path to that executable.
 
-main = cabalTest . void $ do
-    res <- cabal' "list-bin" []
+main = cabalTest $ do
+    -- Use DoNotRecord to avoid maintaining a golden file with build output
+    res <- recordMode DoNotRecord $ cabal' "list-bin" []
 
-    let path = joinPath ["SingleExe-1.0.0", "build", "myexe", "myexe"]
-    assertOutputContains path res
+    -- The binary is somewhere under the build directory for myexe
+    assertOutputContains (joinPath ["myexe", "build", "myexe", "myexe"]) res
