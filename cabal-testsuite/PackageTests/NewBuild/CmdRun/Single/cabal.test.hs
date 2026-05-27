@@ -18,19 +18,25 @@ main = cabalTest $ do
     fails (cabal' "v2-run" ["bar"]) >>= assertOutputDoesNotContain "Hello World"
     recordMode DoNotRecord $ do
       env <- getTestEnv
-      cabalPath <- programPathM cabalProgram
+      configuredCabal <- requireProgramM cabalProgram
       baseEnv <- liftIO getEnvironment
       let mergedEnv =
             foldl'
               (\acc (k, mv) -> maybe (filter ((/= k) . fst) acc) (\v -> (k, v) : filter ((/= k) . fst) acc) mv)
               baseEnv
               (testEnvironment env)
+          streamCheckBuildDir = testDistDir env </> "stream-check"
+          verbosityFlags = "-vverbose +markoutput +nowrap"
+          statusMessages =
+            [ "Build profile:"
+            , "In order, the following will be built:"
+            ]
       (exitCode, out, err) <-
         liftIO $
           readCreateProcessWithExitCode
-            ( (proc cabalPath ["v2-run", "foo"])
-                { env = Just mergedEnv
-                , cwd = Just (testCurrentDir env)
+            ( (proc (programPath configuredCabal) ["v2-run", verbosityFlags, "--builddir", streamCheckBuildDir, "-j1", "foo"])
+                { cwd = Just (testCurrentDir env)
+                , env = Just mergedEnv
                 }
             )
             ""
@@ -38,7 +44,10 @@ main = cabalTest $ do
       assertBool "expected executable output on stdout" ("Hello World" `isInfixOf` out)
       assertBool
         "cabal status output should not be sent to stdout"
-        (all (not . (`isInfixOf` out)) ["Resolving dependencies...", "Build profile:", "In order, the following will be built:", "Up to date"])
+        (all (not . (`isInfixOf` out)) statusMessages)
       assertBool
         "expected cabal status output on stderr"
-        (any (`isInfixOf` err) ["Resolving dependencies...", "Build profile:", "In order, the following will be built:", "Up to date"])
+        (any (`isInfixOf` err) statusMessages)
+      assertBool
+        "expected preprocessing status output on stderr"
+        ("Preprocessing executable" `isInfixOf` err)
