@@ -13,9 +13,8 @@ main = cabalTest $ do
     -- non-existent exe
     fails (cabal' "v2-run" ["bar"]) >>= assertOutputDoesNotContain "Hello World"
     recordMode DoNotRecord $ do
-      let verbosityFlags = "-vverbose +markoutput +nowrap"
       streamCheck <-
-        cabal' "v2-run" [verbosityFlags, "--builddir", "stream-check", "-j1", "foo"]
+        cabal' "v2-run" ["--builddir", "stream-check", "-j1", "foo"]
       assertOutputContains "Hello World" streamCheck
       assertOutputContains "Build profile:" streamCheck
       assertOutputContains "In order, the following will be built:" streamCheck
