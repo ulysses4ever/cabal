@@ -14,8 +14,8 @@ main = cabalTest $ do
     fails (cabal' "v2-run" ["bar"]) >>= assertOutputDoesNotContain "Hello World"
     recordMode DoNotRecord $ do
       cabal "v2-clean" []
-      streamCheck <- cabal' "v2-run" ["foo"]
-      assertOutputContains "Hello World" streamCheck
-      assertOutputContains "Build profile:" streamCheck
-      assertOutputContains "In order, the following will be built:" streamCheck
-      assertOutputContains "Preprocessing executable" streamCheck
+      output <- cabal' "v2-run" ["foo"]
+      assertOutputContains "Hello World" output
+      assertOutputContains "Build profile:" output
+      assertOutputContains "In order, the following will be built:" output
+      assertOutputContains "Preprocessing executable" output
