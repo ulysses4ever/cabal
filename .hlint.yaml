@@ -1,42 +1,43 @@
 # Warnings currently triggered by your code
 - ignore: {name: "Avoid NonEmpty.unzip"} # 1 hint
-- ignore: {name: "Avoid lambda"} # 49 hints
+- ignore: {name: "Avoid lambda"} # 54 hints
 - ignore: {name: "Eta reduce"} # 139 hints
 - ignore: {name: "Hoist not"} # 16 hints
 - ignore: {name: "Move filter"} # 4 hints
-- ignore: {name: "Redundant $!"} # 1 hint
-- ignore: {name: "Redundant bracket"} # 273 hints
+- ignore: {name: "Redundant $!"} # 3 hints
 - ignore: {name: "Redundant guard"} # 1 hint
 - ignore: {name: "Redundant if"} # 6 hints
-- ignore: {name: "Redundant lambda"} # 16 hints
 - ignore: {name: "Redundant multi-way if"} # 1 hint
-- ignore: {name: "Redundant return"} # 9 hints
-- ignore: {name: "Use $>"} # 5 hints
+- ignore: {name: "Redundant return"} # 7 hints
 - ignore: {name: "Use ++"} # 4 hints
-- ignore: {name: "Use :"} # 29 hints
-- ignore: {name: "Use <$"} # 2 hints
-- ignore: {name: "Use <$>"} # 82 hints
-- ignore: {name: "Use <&>"} # 16 hints
-- ignore: {name: "Use <=<"} # 4 hints
-- ignore: {name: "Use =<<"} # 7 hints
-- ignore: {name: "Use >=>"} # 3 hints
+- ignore: {name: "Use :"} # 30 hints
+- ignore: {name: "Use <$>"} # 83 hints
 - ignore: {name: "Use Down"} # 3 hints
-- ignore: {name: "Use bimap"} # 7 hints
-- ignore: {name: "Use camelCase"} # 97 hints
+- ignore: {name: "Use camelCase"} # 92 hints
 - ignore: {name: "Use const"} # 36 hints
 - ignore: {name: "Use fst"} # 2 hints
-- ignore: {name: "Use newtype instead of data"} # 31 hints
+- ignore: {name: "Use newtype instead of data"} # 32 hints
 - ignore: {name: "Use null"} # 2 hints
-- ignore: {name: "Use record patterns"} # 16 hints
-- ignore: {name: "Use void"} # 23 hints
 
 - ignore: {name: "Functor law", within: [Test.Laws]}
 - ignore: {name: "Monoid law, left identity", within: [Test.Laws, UnitTests.Distribution.Utils.NubList]}
 - ignore: {name: "Monoid law, right identity", within: [Test.Laws, UnitTests.Distribution.Utils.NubList]}
+# Changing the Z modules will change the "Meta checks" CI job and fail its
+# "Check diff is clean" test. Wait until the 3.18 release before making changes
+# to these modules.
+- ignore:
+    name: "Redundant bracket"
+    within:
+      - Distribution.Simple.Build.PathsModule.Z
+      - Distribution.Simple.Build.Macros.Z
 - ignore: {name: "Replace case with maybe", within: [Distribution.Client.InLibrary]}
 - ignore: {name: "Use fmap", within: [Distribution.Client.HttpUtils, Distribution.Simple.SrcDist]}
 - ignore: {name: "Use fold", within: [Test.Laws]}
 
+# For lists in these rules we use single letter variables like x rather than xs,
+# because "hlint considers only single-letter identifiers as rules' variables.
+# Anything longer will match literally".
+# SEE: https://github.com/ndmitchell/hlint/issues/1612
 - group:
     name: cabal-suggestions
     enabled: true
@@ -45,17 +46,25 @@
         lhs: fromMaybe x (Data.Map.lookup k m)
         rhs: Map.findWithDefault x k m
         name: Use findWithDefault
+    - hint:
+        lhs: nub x
+        rhs: ordNub x
+        name: Use ordNub
+        note: |
+            The growth rate of nub is O(n^2) and for ordNub it is O(n log n).  May require adding import of either;
+              - Distribution.Utils.Generic from Cabal-syntax, or
+              - Distribution.Simple.Utils from Cabal.
 
 - arguments:
     - --ignore-glob=Cabal-syntax/src/Distribution/Fields/Lexer.hs
     - --ignore-glob=Cabal-tests/tests/custom-setup/CabalDoctestSetup.hs
     - --ignore-glob=Cabal-tests/tests/custom-setup/IdrisSetup.hs
     - --ignore-glob=cabal-testsuite/PackageTests/BuildWays/q/app/Main.hs
-    - --ignore-glob=cabal-testsuite/PackageTests/CppOptions/CppOpts/Main.hs
     - --ignore-glob=cabal-testsuite/PackageTests/CMain/10168/src/Lib.hs
     - --ignore-glob=cabal-testsuite/PackageTests/Cmm/CmmSources/src/Demo.hs
     - --ignore-glob=cabal-testsuite/PackageTests/Cmm/CmmSourcesDyn/src/Demo.hs
     - --ignore-glob=cabal-testsuite/PackageTests/Cmm/CmmSourcesExe/src/Demo.hs
+    - --ignore-glob=cabal-testsuite/PackageTests/CppOptions/CppOpts/Main.hs
     - --ignore-glob=cabal-testsuite/PackageTests/NewBuild/CmdRun/Script/script.hs
     - --ignore-glob=cabal-testsuite/PackageTests/NewBuild/CmdRun/ScriptLiterate/script.lhs
     - --ignore-glob=cabal-testsuite/PackageTests/Regression/T5309/lib/Bio/Character/Exportable/Class.hs
@@ -71,3 +80,4 @@
     - --ignore-glob=templates/Paths_pkg.template.hs
     - --ignore-glob=templates/SPDX.LicenseExceptionId.template.hs
     - --ignore-glob=templates/SPDX.LicenseId.template.hs
+    - --ignore-glob=testdb/intree/store/**/share/AlexTemplate.hs

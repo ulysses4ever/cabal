@@ -1,6 +1,4 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
 
 module Distribution.Types.TestSuiteInterface
   ( TestSuiteInterface (..)
@@ -35,11 +33,10 @@ data TestSuiteInterface
 instance Binary TestSuiteInterface
 instance Structured TestSuiteInterface
 
-instance NFData TestSuiteInterface where rnf = genericRnf
+instance NFData TestSuiteInterface
 
 instance Monoid TestSuiteInterface where
   mempty = TestSuiteUnsupported (TestTypeUnknown mempty nullVersion)
-  mappend = (<>)
 
 instance Semigroup TestSuiteInterface where
   a <> (TestSuiteUnsupported _) = a

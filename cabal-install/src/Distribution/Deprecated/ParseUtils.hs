@@ -1,5 +1,3 @@
-{-# LANGUAGE Rank2Types #-}
------------------------------------------------------------------------------
 -- This module is meant to be local-only to Distribution...
 {-# OPTIONS_HADDOCK hide #-}
 
@@ -124,7 +122,6 @@ instance Applicative ParseResult where
   (<*>) = ap
 
 instance Monad ParseResult where
-  return = pure
   ParseFailed err >>= _ = ParseFailed err
   ParseOk ws x >>= f = case f x of
     ParseFailed err -> ParseFailed err

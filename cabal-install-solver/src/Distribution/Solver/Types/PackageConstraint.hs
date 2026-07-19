@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-
 -- | Per-package constraints. Package constraints must be respected by the
 -- solver. Multiple constraints for each package can be given, though obviously
 -- it is possible to construct conflicting constraints (eg impossible version
@@ -140,8 +138,8 @@ packageConstraintToDependency :: PackageConstraint -> Maybe PackageVersionConstr
 packageConstraintToDependency (PackageConstraint scope prop) = toDep prop
   where
     toDep (PackagePropertyVersion vr) = Just $ PackageVersionConstraint (scopeToPackageName scope) vr
-    toDep (PackagePropertyInstalled)  = Nothing
+    toDep PackagePropertyInstalled  = Nothing
     toDep (PackagePropertyInstalledSpecificUnitId {}) = Nothing
-    toDep (PackagePropertySource)     = Nothing
+    toDep PackagePropertySource       = Nothing
     toDep (PackagePropertyFlags _)    = Nothing
     toDep (PackagePropertyStanzas _)  = Nothing

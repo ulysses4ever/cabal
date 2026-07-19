@@ -1,5 +1,3 @@
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
 
 -- | Management for the installed package store.
@@ -37,15 +35,10 @@ import Distribution.Simple.Utils
 
 import Control.Exception
 import qualified Data.Set as Set
+import GHC.IO.Handle.Lock (LockMode (ExclusiveLock), hLock, hTryLock, hUnlock)
 import System.Directory
 import System.FilePath
-
-#ifdef MIN_VERSION_lukko
-import Lukko
-#else
-import System.IO (openFile, IOMode(ReadWriteMode), hClose)
-import GHC.IO.Handle.Lock (LockMode (ExclusiveLock), hLock, hTryLock, hUnlock)
-#endif
+import System.IO (IOMode (ReadWriteMode), hClose, openFile)
 
 -- $concurrency
 --
@@ -211,7 +204,7 @@ newStoreEntry
             -- Atomically rename the temp dir to the final store entry location.
             renameDirectory incomingEntryDir finalEntryDir
             for_ otherFiles $ \file -> do
-              let finalStoreFile = storeDirectory compiler </> makeRelative (normalise $ incomingTmpDir </> (dropDrive (storeDirectory compiler))) file
+              let finalStoreFile = storeDirectory compiler </> makeRelative (normalise $ incomingTmpDir </> dropDrive (storeDirectory compiler)) file
               createDirectoryIfMissing True (takeDirectory finalStoreFile)
               renameFile file finalStoreFile
 
@@ -250,36 +243,17 @@ withIncomingUnitIdLock
     bracket takeLock releaseLock (\_hnd -> action)
     where
       compid = compilerId compiler
-#ifdef MIN_VERSION_lukko
-      takeLock
-          | fileLockingSupported = do
-              fd <- fdOpen (storeIncomingLock compiler unitid)
-              gotLock <- fdTryLock fd ExclusiveLock
-              unless gotLock  $ do
-                  info verbosity $ "Waiting for file lock on store entry "
-                                ++ prettyShow compid </> prettyShow unitid
-                  fdLock fd ExclusiveLock
-              return fd
-
-          -- if there's no locking, do nothing. Be careful on AIX.
-          | otherwise = return undefined -- :(
-
-      releaseLock fd
-          | fileLockingSupported = do
-              fdUnlock fd
-              fdClose fd
-          | otherwise = return ()
-#else
       takeLock = do
         h <- openFile (storeIncomingLock compiler unitid) ReadWriteMode
         -- First try non-blocking, but if we would have to wait then
         -- log an explanation and do it again in blocking mode.
         gotlock <- hTryLock h ExclusiveLock
         unless gotlock $ do
-          info verbosity $ "Waiting for file lock on store entry "
-                        ++ prettyShow compid </> prettyShow unitid
+          info verbosity $
+            "Waiting for file lock on store entry "
+              ++ prettyShow compid
+              </> prettyShow unitid
           hLock h ExclusiveLock
         return h
 
       releaseLock h = hUnlock h >> hClose h
-#endif

@@ -1,8 +1,5 @@
 {-# LANGUAGE DisambiguateRecordFields #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections #-}
 
 -- | DSL for testing the modular solver
 module UnitTests.Distribution.Solver.Modular.DSL
@@ -176,7 +173,6 @@ instance Monoid Dependencies where
       , depsIsBuildable = True
       , depsExampleDependencies = []
       }
-  mappend = (<>)
 
 dependencies :: [ExampleDependency] -> Dependencies
 dependencies deps = mempty{depsExampleDependencies = deps}
@@ -595,19 +591,19 @@ exAvSrcPkg ex =
     extractFlags deps = concatMap go (depsExampleDependencies deps)
       where
         go :: ExampleDependency -> [ExampleFlagName]
-        go (ExAny _) = []
-        go (ExFix _ _) = []
-        go (ExRange _ _ _) = []
-        go (ExSubLibAny _ _) = []
-        go (ExSubLibFix _ _ _) = []
-        go (ExBuildToolAny _ _) = []
-        go (ExBuildToolFix _ _ _) = []
-        go (ExLegacyBuildToolAny _) = []
-        go (ExLegacyBuildToolFix _ _) = []
+        go ExAny{} = []
+        go ExFix{} = []
+        go ExRange{} = []
+        go ExSubLibAny{} = []
+        go ExSubLibFix{} = []
+        go ExBuildToolAny{} = []
+        go ExBuildToolFix{} = []
+        go ExLegacyBuildToolAny{} = []
+        go ExLegacyBuildToolFix{} = []
         go (ExFlagged f a b) = f : extractFlags a ++ extractFlags b
-        go (ExExt _) = []
-        go (ExLang _) = []
-        go (ExPkg _) = []
+        go ExExt{} = []
+        go ExLang{} = []
+        go ExPkg{} = []
 
     -- Convert 'Dependencies' into a tree of a specific component type, using
     -- the given top level component and function for creating a component at

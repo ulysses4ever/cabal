@@ -1,9 +1,7 @@
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 {- HLINT ignore "Use curry" -}
 
@@ -220,7 +218,7 @@ runExternalPreBuildRules verbHandles hooksExe
     SSystem
     ( \ rId cmd -> case cmd of
       StaticRuleCommand {} -> return Nothing
-      DynamicRuleCommands {} -> hook "runPreBuildRuleDeps" (rId, cmd)
+      DynamicRuleCommands {} -> Just <$> hook "runPreBuildRuleDeps" (rId, cmd)
     )
     ( \ rId cmd -> hook "runPreBuildRule" (rId, cmd) )
     verbosity lbi tgt rulesMap

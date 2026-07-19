@@ -1,9 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
-
------------------------------------------------------------------------------
 
 -- |
 -- Module      :  Distribution.Fields.Parser
@@ -322,7 +319,7 @@ sectionLayoutOrBraces ilevel =
       closeBrace
       return elems
   )
-    <|> (elements ilevel)
+    <|> elements ilevel
 
 -- The body of a field, using either inline style or braces.
 --

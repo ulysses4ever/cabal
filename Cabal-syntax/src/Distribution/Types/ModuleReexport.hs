@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
-
 module Distribution.Types.ModuleReexport
   ( ModuleReexport (..)
   ) where
@@ -28,7 +25,7 @@ data ModuleReexport = ModuleReexport
 
 instance Binary ModuleReexport
 instance Structured ModuleReexport
-instance NFData ModuleReexport where rnf = genericRnf
+instance NFData ModuleReexport
 
 instance Pretty ModuleReexport where
   pretty (ModuleReexport mpkgname origname newname) =

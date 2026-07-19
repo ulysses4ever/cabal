@@ -1,8 +1,4 @@
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | This module provides a 'FieldGrammarParser', one way to parse
 -- @.cabal@ -like files.
@@ -154,8 +150,8 @@ instance Applicative (ParsecFieldGrammar s) where
 
   ParsecFG f f' f'' <*> ParsecFG x x' x'' =
     ParsecFG
-      (mappend f x)
-      (mappend f' x')
+      (f <> x)
+      (f' <> x')
       (\v fields -> f'' v fields <*> x'' v fields)
   {-# INLINE (<*>) #-}
 

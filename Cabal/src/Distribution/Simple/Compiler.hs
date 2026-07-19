@@ -1,8 +1,4 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveTraversable #-}
-
------------------------------------------------------------------------------
 
 -- |
 -- Module      :  Distribution.Simple.Compiler
@@ -86,6 +82,7 @@ module Distribution.Simple.Compiler
   , libraryDynDirSupported
   , libraryVisibilitySupported
   , jsemSupported
+  , jsemVersion
   , reexportedAsSupported
 
     -- * Support for profiling detail levels
@@ -479,6 +476,15 @@ jsemSupported comp = case compilerFlavor comp of
   _ -> False
   where
     v = compilerVersion comp
+
+-- | What semaphore protocol version does this compiler use?
+--
+-- Returns @Nothing@ for compilers that don't report a "Semaphore version"
+-- field in @ghc --info@ (i.e. GHC 9.8–9.14, which use v1).
+jsemVersion :: Compiler -> Maybe Int
+jsemVersion comp = case compilerFlavor comp of
+  GHC -> Map.lookup "Semaphore version" (compilerProperties comp) >>= readMaybe
+  _ -> Nothing
 
 -- | Does the compiler support the -reexported-modules "A as B" syntax
 reexportedAsSupported :: Compiler -> Bool

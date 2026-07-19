@@ -7,3 +7,4 @@ Error:
     Try moving this module to a separate library, e.g.,
     create a new stanza: library 'sublib'.
     In the stanza executable foo-exe
+    CallStack (from HasCallStack): <SNIPPED>

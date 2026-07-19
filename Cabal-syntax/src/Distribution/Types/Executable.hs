@@ -1,6 +1,4 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
 
 module Distribution.Types.Executable
   ( Executable (..)
@@ -33,7 +31,7 @@ instance L.HasBuildInfo Executable where
 
 instance Binary Executable
 instance Structured Executable
-instance NFData Executable where rnf = genericRnf
+instance NFData Executable
 
 instance Monoid Executable where
   mempty =
@@ -43,7 +41,6 @@ instance Monoid Executable where
       , exeScope = mempty
       , buildInfo = mempty
       }
-  mappend = (<>)
 
 instance Semigroup Executable where
   a <> b =
@@ -54,7 +51,7 @@ instance Semigroup Executable where
       , buildInfo = combine buildInfo
       }
     where
-      combine field = field a `mappend` field b
+      combine field = field a <> field b
 
 emptyExecutable :: Executable
 emptyExecutable = mempty

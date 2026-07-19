@@ -1,9 +1,7 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ViewPatterns #-}
 
 -- |
@@ -60,6 +58,7 @@ data InstallFlags = InstallFlags
   , installInPlace :: Flag Bool
   }
   deriving (Show, Generic)
+  deriving (Semigroup, Monoid) via Generically InstallFlags
 
 pattern InstallCommonFlags
   :: Flag VerbosityFlags
@@ -175,10 +174,3 @@ installOptions =
 
 emptyInstallFlags :: InstallFlags
 emptyInstallFlags = mempty
-
-instance Monoid InstallFlags where
-  mempty = gmempty
-  mappend = (<>)
-
-instance Semigroup InstallFlags where
-  (<>) = gmappend

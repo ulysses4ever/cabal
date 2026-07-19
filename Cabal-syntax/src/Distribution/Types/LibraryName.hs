@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
-
 module Distribution.Types.LibraryName
   ( LibraryName (..)
   , defaultLibName
@@ -33,7 +30,7 @@ data LibraryName
 
 instance Binary LibraryName
 instance Structured LibraryName
-instance NFData LibraryName where rnf = genericRnf
+instance NFData LibraryName
 
 -- | Pretty print 'LibraryName' in build-target-ish syntax.
 --

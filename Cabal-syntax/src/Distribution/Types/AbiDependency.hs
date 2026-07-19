@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-
 module Distribution.Types.AbiDependency where
 
 import Distribution.Compat.Prelude
@@ -41,4 +39,4 @@ instance Parsec AbiDependency where
 
 instance Binary AbiDependency
 instance Structured AbiDependency
-instance NFData AbiDependency where rnf = genericRnf
+instance NFData AbiDependency

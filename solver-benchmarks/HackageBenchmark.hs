@@ -1,6 +1,5 @@
+{-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module HackageBenchmark (
     hackageBenchmarkMain
@@ -16,7 +15,7 @@ module HackageBenchmark (
 import Control.Concurrent.Async (concurrently)
 import Control.Monad (forM, replicateM, unless, when)
 import qualified Data.ByteString as BS
-import Data.List (nub, unzip4)
+import Data.List (unzip4)
 import Data.Maybe (isJust, catMaybes)
 import Data.String (fromString)
 import Data.Function ((&))
@@ -41,6 +40,7 @@ import Text.Printf (printf)
 import qualified Data.Map.Strict as Map
 
 import Distribution.Package (PackageName, mkPackageName, unPackageName)
+import Distribution.Utils.Generic (ordNub)
 
 data Args = Args {
     argCabal1                      :: FilePath
@@ -71,6 +71,9 @@ data CabalResult
   | Timeout
   | Unknown
   deriving (Eq, Show)
+
+-- | @since 3.18
+deriving instance Ord CabalResult
 
 hackageBenchmarkMain :: IO ()
 hackageBenchmarkMain = do
@@ -185,7 +188,7 @@ hackageBenchmarkMain = do
           then do
             putStrLn $ "Obtaining the package list (using " ++ argCabal1 ++ ") ..."
             list <- readProcess argCabal1 ["list", "--simple-output"] ""
-            return $ nub [mkPackageName n | n : _ <- words <$> lines list]
+            return $ ordNub ([mkPackageName n | n : _ <- words <$> lines list])
           else do
             putStrLn "Using given package list ..."
             return argPackages
@@ -348,8 +351,8 @@ combineTrialResults rs
   | allEqual [r | r <- rs, r /= Timeout] = Timeout
   | otherwise                            = Unknown
   where
-    allEqual :: Eq a => [a] -> Bool
-    allEqual xs = length (nub xs) == 1
+    allEqual :: Ord a => [a] -> Bool
+    allEqual xs = length (ordNub xs) == 1
 
 timeEvent :: IO a -> IO (a, NominalDiffTime)
 timeEvent task = do
@@ -369,32 +372,32 @@ parserInfo = info (argParser <**> helper)
     <> header "hackage-benchmark" )
 
 argParser :: Parser Args
-argParser = Args
-    <$> strOption
+argParser = do
+  argCabal1 <- strOption
          ( long "cabal1"
         <> metavar "PATH"
         <> help "First cabal executable")
-    <*> strOption
+  argCabal2 <- strOption
          ( long "cabal2"
         <> metavar "PATH"
         <> help "Second cabal executable")
-    <*> option (words <$> str)
+  argCabal1Flags <- option (words <$> str)
          ( long "cabal1-flags"
         <> value []
         <> metavar "FLAGS"
         <> help "Extra flags for the first cabal executable")
-    <*> option (words <$> str)
+  argCabal2Flags <- option (words <$> str)
          ( long "cabal2-flags"
         <> value []
         <> metavar "FLAGS"
         <> help "Extra flags for the second cabal executable")
-    <*> option (map mkPackageName . words <$> str)
+  argPackages <- option (map mkPackageName . words <$> str)
          ( long "packages"
         <> value []
         <> metavar "PACKAGES"
         <> help ("Space separated list of packages to test, or all of Hackage"
                    ++ " if unspecified"))
-    <*> option auto
+  argMinRunTimeDifferenceToRerun <- option auto
          ( long "min-run-time-percentage-difference-to-rerun"
         <> showDefault
         <> value 0.0
@@ -402,31 +405,32 @@ argParser = Args
         <> help ("Stop testing a package when the difference in run times in"
                    ++ " the first trial are within this percentage, in order to"
                    ++ " save time"))
-    <*> option (mkPValue <$> auto)
+  argPValue <- option (mkPValue <$> auto)
          ( long "pvalue"
         <> showDefault
         <> value (mkPValue 0.05)
         <> metavar "DOUBLE"
         <> help ("p-value used to determine whether to print the results for"
                    ++ " each package"))
-    <*> option auto
+  argTrials <- option auto
          ( long "trials"
         <> showDefault
         <> value 10
         <> metavar "N"
         <> help "Number of trials for each package")
-    <*> switch
+  argConcurrently <- switch
          ( long "concurrently"
         <> help "Run cabals concurrently")
-    <*> switch
+  argPrintTrials <- switch
          ( long "print-trials"
         <> help "Whether to include the results from individual trials in the output")
-    <*> switch
+  argPrintSkippedPackages <- switch
          ( long "print-skipped-packages"
         <> help "Whether to include skipped packages in the output")
-    <*> option auto
+  argTimeoutSeconds <- option auto
          ( long "timeout"
         <> showDefault
         <> value 90
         <> metavar "SECONDS"
         <> help "Maximum time to run a cabal command, in seconds")
+  pure Args{..}

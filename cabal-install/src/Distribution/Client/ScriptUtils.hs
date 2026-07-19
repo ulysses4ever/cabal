@@ -1,5 +1,4 @@
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -58,7 +57,7 @@ import Distribution.Client.ProjectConfig
   , withGlobalConfig
   , withProjectOrGlobalConfig
   )
-import Distribution.Client.ProjectConfig.Import (ProjectConfigSkeleton)
+import Distribution.Client.ProjectConfig.Import (ProjectConfigSkeleton, reportDuplicateImports)
 import Distribution.Client.ProjectConfig.Legacy
   ( instantiateProjectConfigSkeletonFetchingCompiler
   , parseProject
@@ -91,6 +90,9 @@ import Distribution.Client.Types
 import Distribution.Compiler
   ( CompilerId (..)
   , perCompilerFlavorToList
+  )
+import qualified Distribution.Deprecated.ProjectParseUtils as OldParser
+  ( ProjectParseResult (..)
   )
 import Distribution.FieldGrammar
   ( parseFieldGrammar
@@ -328,7 +330,7 @@ withContextAndSelectors verbosity noTargets kind flags@NixStyleFlags{..} targetS
             | TargetString1 script <- t -> scriptOrError script err
           Left err@(TargetSelectorExpected t _ _ : _)
             | TargetString1 script <- t -> scriptOrError script err
-          Left err@(MatchingInternalError _ _ _ : _) -- Handle ':' in middle of script name.
+          Left err@(MatchingInternalError{} : _) -- Handle ':' in middle of script name.
             | [script] <- targetStrings -> scriptOrError script err
           Left err -> reportTargetSelectorProblems verbosity err
           Right sels -> return (tc, ctx, sels)
@@ -382,7 +384,7 @@ withContextAndSelectors verbosity noTargets kind flags@NixStyleFlags{..} targetS
 
           let ctx' = ctx & lProjectConfig %~ (<> projectCfg)
 
-              build_dir = distBuildDirectory (distDirLayout ctx') $ (scriptDistDirParams script) ctx' compiler platform
+              build_dir = distBuildDirectory (distDirLayout ctx') $ scriptDistDirParams script ctx' compiler platform
               exePath = build_dir </> "bin" </> scriptExeFileName script
               exePathRel = makeRelative (normalise projectRoot) exePath
 
@@ -521,9 +523,12 @@ readProjectBlockFromScript :: Verbosity -> HttpTransport -> DistDirLayout -> Str
 readProjectBlockFromScript verbosity httpTransport DistDirLayout{distDownloadSrcDirectory} scriptName str = do
   case extractScriptBlock "project" str of
     Left _ -> return mempty
-    Right x ->
-      reportParseResult verbosity "script" scriptName
-        =<< parseProject scriptName distDownloadSrcDirectory httpTransport verbosity (ProjectConfigToParse x)
+    Right bs -> do
+      res <- parseProject scriptName distDownloadSrcDirectory httpTransport verbosity (ProjectConfigToParse bs)
+      case res of
+        OldParser.ProjectParseOk _ skeleton -> reportDuplicateImports verbosity skeleton
+        OldParser.ProjectParseFailed{} -> pure ()
+      reportParseResult verbosity "script" scriptName res
 
 -- | Extract the first encountered script metadata block started end
 -- terminated by the tokens

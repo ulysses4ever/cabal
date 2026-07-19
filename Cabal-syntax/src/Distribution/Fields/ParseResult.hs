@@ -1,7 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RankNTypes #-}
-
 -- | A parse result type for parsers from AST to Haskell types.
 module Distribution.Fields.ParseResult
   ( ParseResult
@@ -68,12 +64,20 @@ runParseResult pr = unPR pr emptyPRState initialCtx failure success
   where
     initialCtx = PRContext PUnknownSource
 
-    failure (PRState warns [] v) = (warns, Left (v, PErrorWithSource PUnknownSource (PError zeroPos "panic") :| []))
-    failure (PRState warns (err : errs) v) = (warns, Left (v, err :| errs))
+    failure (PRState warns errors v) = (sortWarns warns, Left (v, errors'))
+      where
+        errors' = case errors of
+          [] -> PErrorWithSource PUnknownSource (PError zeroPos "panic") :| []
+          err : errs -> err :| errs
 
-    success (PRState warns [] _) x = (warns, Right x)
-    -- If there are any errors, don't return the result
-    success (PRState warns (err : errs) v) _ = (warns, Left (v, err :| errs))
+    success (PRState warns errors v) x = (sortWarns warns, result)
+      where
+        result = case errors of
+          [] -> Right x
+          -- If there are any errors, don't return the result
+          err : errs -> Left (v, err :| errs)
+
+    sortWarns = sortBy (comparing (pwarningPosition . pwarning))
 
 -- | Chain parsing operations that involve 'IO' actions.
 liftParseResult :: (a -> IO (ParseResult src b)) -> ParseResult src a -> IO (ParseResult src b)
@@ -86,7 +90,7 @@ liftParseResult f pr = unPR pr emptyPRState initialCtx failure success
       pr' <- f a
       return $ PR $ \s' ctx failure' success' -> unPR pr' (concatPRState s s') ctx failure' success'
     concatPRState (PRState warnings errors version) (PRState warnings' errors' version') =
-      (PRState (warnings ++ warnings') (toList errors ++ errors') (version <|> version'))
+      PRState (warnings ++ warnings') (toList errors ++ errors') (version <|> version')
 
 withSource :: src -> ParseResult src a -> ParseResult src a
 withSource source (PR pr) = PR $ \s ctx failure success ->
@@ -120,7 +124,6 @@ instance Applicative (ParseResult src) where
   {-# INLINE (<*) #-}
 
 instance Monad (ParseResult src) where
-  return = pure
   (>>) = (*>)
 
   m >>= k = PR $ \ !s fp failure success ->

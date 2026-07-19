@@ -1,4 +1,3 @@
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE PatternSynonyms #-}
 
 -- | cabal-install CLI command: freeze
@@ -12,6 +11,7 @@ import Prelude ()
 
 import Distribution.Client.DistDirLayout
   ( DistDirLayout (distProjectFile)
+  , ProjectFileKey (ProjectFileKeyFreeze)
   )
 import Distribution.Client.IndexUtils (ActiveRepos, TotalIndexState, filterSkippedActiveRepos)
 import qualified Distribution.Client.InstallPlan as InstallPlan
@@ -157,7 +157,7 @@ freezeAction flags extraArgs globalFlags = do
     else do
       writeProjectLocalFreezeConfig distDirLayout freezeConfig
       notice verbosity $
-        "Wrote freeze file: " ++ (distProjectFile distDirLayout "freeze")
+        "Wrote freeze file: " ++ distProjectFile distDirLayout ProjectFileKeyFreeze
   where
     verbosity = cfgVerbosity normal flags
     cliConfig =

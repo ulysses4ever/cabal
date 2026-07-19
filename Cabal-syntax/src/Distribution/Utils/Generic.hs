@@ -1,8 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-
 -- |
 -- Module      :  Distribution.Utils.Generic
 -- Copyright   :  Isaac Jones, Simon Marlow 2003-2004
@@ -87,6 +82,7 @@ import Prelude ()
 
 import Control.Concurrent (threadDelay)
 import qualified Control.Exception as Exception
+import Control.Monad ((>=>))
 import Data.Bits (shiftL, (.&.), (.|.))
 import qualified Data.ByteString as SBS
 import qualified Data.ByteString.Lazy as LBS
@@ -161,11 +157,7 @@ wrapLine width = wrap 0 []
 -- The file is read lazily; if it is not fully consumed by the action then an
 -- exception is thrown.
 withFileContents :: FilePath -> (String -> IO a) -> IO a
-withFileContents name action =
-  withFile
-    name
-    ReadMode
-    (\hnd -> hGetContents hnd >>= action)
+withFileContents name action = withFile name ReadMode (hGetContents >=> action)
 
 -- | Writes a file atomically.
 --
@@ -307,7 +299,7 @@ ignoreBOM string = string
 --
 -- Reads lazily using ordinary 'readFile'.
 readUTF8File :: FilePath -> IO String
-readUTF8File f = (ignoreBOM . fromUTF8LBS) <$> LBS.readFile f
+readUTF8File f = ignoreBOM . fromUTF8LBS <$> LBS.readFile f
 
 -- | Reads a UTF8 encoded text file as a Unicode String
 --
@@ -317,7 +309,7 @@ withUTF8FileContents name action =
   withBinaryFile
     name
     ReadMode
-    (\hnd -> LBS.hGetContents hnd >>= action . ignoreBOM . fromUTF8LBS)
+    (LBS.hGetContents >=> action . ignoreBOM . fromUTF8LBS)
 
 -- | Writes a Unicode String as a UTF8 encoded text file.
 --
@@ -478,7 +470,7 @@ isAscii c = fromEnum c < 0x80
 
 -- | Ascii letters.
 isAsciiAlpha :: Char -> Bool
-isAsciiAlpha c = (isAsciiLower c) || (isAsciiUpper c)
+isAsciiAlpha c = isAsciiLower c || isAsciiUpper c
 
 -- | Ascii letters and digits.
 --
@@ -544,7 +536,7 @@ unfoldrM f = go
       m <- f b
       case m of
         Nothing -> return []
-        Just (a, b') -> (a :) <$> (go b')
+        Just (a, b') -> (a :) <$> go b'
 
 -- | The opposite of 'snoc', which is the reverse of 'cons'
 --

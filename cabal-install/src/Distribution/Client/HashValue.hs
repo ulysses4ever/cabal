@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-
 module Distribution.Client.HashValue
   ( HashValue
   , hashValue
@@ -9,6 +7,7 @@ module Distribution.Client.HashValue
   , hashFromTUF
   ) where
 
+import Control.Monad ((<=<))
 import Distribution.Client.Compat.Prelude
 import Prelude ()
 
@@ -56,8 +55,7 @@ showHashValue (HashValue digest) = BS.unpack (Base16.encode digest)
 -- | Hash the content of a file. Uses SHA256.
 readFileHashValue :: FilePath -> IO HashValue
 readFileHashValue tarball =
-  withBinaryFile tarball ReadMode $ \hnd ->
-    evaluate . hashValue =<< LBS.hGetContents hnd
+  withBinaryFile tarball ReadMode (evaluate . hashValue <=< LBS.hGetContents)
 
 -- | Convert a hash from TUF metadata into a 'PackageSourceHash'.
 --

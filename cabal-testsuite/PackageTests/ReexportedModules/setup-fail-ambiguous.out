@@ -21,3 +21,4 @@ Error:
         re-export with a package name.
         The syntax is 'packagename:ModuleName [as NewName]'.
     In the stanza library
+    CallStack (from HasCallStack): <SNIPPED>

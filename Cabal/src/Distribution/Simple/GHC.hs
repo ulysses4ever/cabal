@@ -1,13 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-
------------------------------------------------------------------------------
 
 -- |
 -- Module      :  Distribution.Simple.GHC
@@ -236,9 +230,18 @@ configureCompiler verbosity hcPath conf0 = do
       -- @compilerId@: "ghc-9.13.20250413"
       -- So, we need to be careful to only strip the /common/ prefix.
       -- In this example, @AbiTag@ is "inplace".
+      -- If the @Project Unit Id@ exactly matches @compilerId@, stripping the
+      -- common prefix yields the empty string, which should be treated as
+      -- @NoAbiTag@ rather than @AbiTag ""@.
       compilerAbiTag :: AbiTag
       compilerAbiTag =
-        maybe NoAbiTag (AbiTag . dropWhile (== '-') . stripCommonPrefix (prettyShow compilerId)) projectUnitId
+        let abiTagSuffix =
+              dropWhile (== '-') . stripCommonPrefix (prettyShow compilerId)
+                <$> projectUnitId
+         in case abiTagSuffix of
+              Nothing -> NoAbiTag
+              Just "" -> NoAbiTag
+              Just tag -> AbiTag tag
 
       wiredInUnitIds = do
         ghcInternalUnitId <- Map.lookup "ghc-internal Unit Id" ghcInfoMap
@@ -781,14 +784,14 @@ libAbiHash verbosity _pkg_descr lbi lib clbi = do
     platform = hostPlatform lbi
     mbWorkDir = mbWorkDirLBI lbi
     vanillaArgs =
-      (Internal.componentGhcOptions (verbosityLevel verbosity) lbi libBi clbi (componentBuildDir lbi clbi))
-        `mappend` mempty
+      Internal.componentGhcOptions (verbosityLevel verbosity) lbi libBi clbi (componentBuildDir lbi clbi)
+        <> mempty
           { ghcOptMode = toFlag GhcModeAbiHash
           , ghcOptInputModules = toNubListR $ exposedModules lib
           }
     sharedArgs =
       vanillaArgs
-        `mappend` mempty
+        <> mempty
           { ghcOptDynLinkMode = toFlag GhcDynamicOnly
           , ghcOptFPic = toFlag True
           , ghcOptHiSuffix = toFlag "dyn_hi"
@@ -797,7 +800,7 @@ libAbiHash verbosity _pkg_descr lbi lib clbi = do
           }
     profArgs =
       vanillaArgs
-        `mappend` mempty
+        <> mempty
           { ghcOptProfilingMode = toFlag True
           , ghcOptProfilingAuto =
               Internal.profDetailLevelFlag
@@ -809,7 +812,7 @@ libAbiHash verbosity _pkg_descr lbi lib clbi = do
           }
     profDynArgs =
       vanillaArgs
-        `mappend` mempty
+        <> mempty
           { ghcOptProfilingMode = toFlag True
           , ghcOptProfilingAuto =
               Internal.profDetailLevelFlag
@@ -980,7 +983,7 @@ installLib verbosity lbi targetDir dynlibTargetDir bytecodeTargetDir _builtDir p
           | l <-
               getHSLibraryName
                 (componentUnitId clbi)
-                : (extraBundledLibs (libBuildInfo lib))
+                : extraBundledLibs (libBuildInfo lib)
           , f <- "" : extraLibFlavours (libBuildInfo lib)
           ]
         whenGHCi $ installOrdinary builtDir targetDir ghciLibName

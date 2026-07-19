@@ -1,9 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns #-}
 
 -- | This module deals with building and incrementally rebuilding a collection
@@ -309,7 +306,7 @@ establishProjectBaseContextWithRoot verbosity cliConfig projectRoot currentComma
 
   -- https://github.com/haskell/cabal/issues/6013
   -- https://github.com/haskell/cabal/issues/7401
-  let projPath = distProjectFileMain (distProjectFile distDirLayout)
+  let projPath = distProjectFile distDirLayout ProjectFileKeyMain
   when (null (projectPackages projectConfig) && null (projectPackagesOptional projectConfig)) $
     dieWithException verbosity (ProjectConfigNoPackages projPath)
 
@@ -598,7 +595,7 @@ resolveTargetsFromSolver
        -> Either (TargetProblem err) k
      )
   -> ElaboratedInstallPlan
-  -> Maybe (SourcePackageDb)
+  -> Maybe SourcePackageDb
   -> [TargetSelector]
   -> Either [TargetProblem err] TargetsMap
 resolveTargetsFromSolver selectPackageTargets selectComponentTarget installPlan sourceDb targetSelectors =
@@ -682,7 +679,7 @@ resolveTargets
        -> Either (TargetProblem err) k
      )
   -> AvailableTargetIndexes u
-  -> Maybe (SourcePackageDb)
+  -> Maybe SourcePackageDb
   -> [TargetSelector]
   -> Either [TargetProblem err] (TargetsMapX u)
 resolveTargets
@@ -1018,7 +1015,7 @@ selectBuildableTargetsWith' p =
   (fmap . map) forgetTargetDetail . unzip . zipBuildableTargetsWith p
 
 forgetTargetDetail :: AvailableTarget k -> AvailableTarget ()
-forgetTargetDetail = fmap (const ())
+forgetTargetDetail = void
 
 forgetTargetsDetail :: [AvailableTarget k] -> [AvailableTarget ()]
 forgetTargetsDetail = map forgetTargetDetail

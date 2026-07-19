@@ -1,8 +1,4 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RankNTypes #-}
-
------------------------------------------------------------------------------
 
 -- |
 -- Module      :  Distribution.Simple.Register
@@ -167,7 +163,7 @@ generateOne verbHandles pkg lib lbi clbi regFlags =
     -- registering into a totally different db stack can
     -- fail if dependencies cannot be satisfied.
     packageDbs =
-      nub $
+      ordNub $
         withPackageDB lbi
           ++ maybeToList (flagToMaybe (regPackageDB regFlags))
     distPref = fromFlag $ setupDistPref common
@@ -228,7 +224,7 @@ registerAll verbHandles pkg lbi regFlags ipis =
     -- registering into a totally different db stack can
     -- fail if dependencies cannot be satisfied.
     packageDbs =
-      nub $
+      ordNub $
         withPackageDB lbi
           ++ maybeToList (flagToMaybe (regPackageDB regFlags))
     common = registerCommonFlags regFlags
@@ -354,7 +350,7 @@ relocRegistrationInfo
   -> PackageDB
   -> IO InstalledPackageInfo
 relocRegistrationInfo verbosity pkg lib lbi clbi abi_hash packageDb =
-  case (compilerFlavor (compiler lbi)) of
+  case compilerFlavor (compiler lbi) of
     GHC -> do
       fs <- GHC.pkgRoot verbosity lbi packageDb
       return
@@ -607,7 +603,7 @@ generalInstalledPackageInfo adjustRelIncDirs pkg abi_hash lib lbi clbi installDi
       | otherwise =
           (libdir installDirs : dynlibdir installDirs : extraLibDirs', [])
     expectLibraryComponent (Just attribute) = attribute
-    expectLibraryComponent Nothing = (error "generalInstalledPackageInfo: Expected a library component, got something else.")
+    expectLibraryComponent Nothing = error "generalInstalledPackageInfo: Expected a library component, got something else."
 
 -- the compiler doesn't understand the dynamic-library-dirs field so we
 -- add the dyn directory to the "normal" list in the library-dirs field

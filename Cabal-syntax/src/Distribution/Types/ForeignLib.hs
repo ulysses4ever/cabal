@@ -1,6 +1,4 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
 
 module Distribution.Types.ForeignLib
   ( ForeignLib (..)
@@ -85,7 +83,7 @@ instance Read LibVersionInfo where
 
 instance Binary LibVersionInfo
 instance Structured LibVersionInfo
-instance NFData LibVersionInfo where rnf = genericRnf
+instance NFData LibVersionInfo
 
 instance Pretty LibVersionInfo where
   pretty (LibVersionInfo c r a) =
@@ -138,7 +136,7 @@ instance L.HasBuildInfo ForeignLib where
 
 instance Binary ForeignLib
 instance Structured ForeignLib
-instance NFData ForeignLib where rnf = genericRnf
+instance NFData ForeignLib
 
 instance Semigroup ForeignLib where
   a <> b =
@@ -152,7 +150,7 @@ instance Semigroup ForeignLib where
       , foreignLibModDefFile = combine foreignLibModDefFile
       }
     where
-      combine field = field a `mappend` field b
+      combine field = field a <> field b
       -- chooseLast: the second field overrides the first, unless it is Nothing
       chooseLast field = getLast (Last (field a) <> Last (field b))
 
@@ -167,7 +165,6 @@ instance Monoid ForeignLib where
       , foreignLibVersionLinux = Nothing
       , foreignLibModDefFile = []
       }
-  mappend = (<>)
 
 -- | An empty foreign library.
 emptyForeignLib :: ForeignLib

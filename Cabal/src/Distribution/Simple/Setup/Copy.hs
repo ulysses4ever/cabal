@@ -1,9 +1,7 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ViewPatterns #-}
 
 -- |
@@ -56,6 +54,7 @@ data CopyFlags = CopyFlags
   , copyDest :: Flag CopyDest
   }
   deriving (Show, Generic)
+  deriving (Semigroup, Monoid) via Generically CopyFlags
 
 pattern CopyCommonFlags
   :: Flag VerbosityFlags
@@ -167,10 +166,3 @@ copyOptions showOrParseArgs =
 
 emptyCopyFlags :: CopyFlags
 emptyCopyFlags = mempty
-
-instance Monoid CopyFlags where
-  mempty = gmempty
-  mappend = (<>)
-
-instance Semigroup CopyFlags where
-  (<>) = gmappend

@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
-
 -- @since 3.0
 module Distribution.Types.PkgconfigVersion
   ( PkgconfigVersion (..)
@@ -36,7 +33,7 @@ instance Ord PkgconfigVersion where
 
 instance Binary PkgconfigVersion
 instance Structured PkgconfigVersion
-instance NFData PkgconfigVersion where rnf = genericRnf
+instance NFData PkgconfigVersion
 
 instance Pretty PkgconfigVersion where
   pretty (PkgconfigVersion bs) = PP.text (BS8.unpack bs)

@@ -1,8 +1,6 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ViewPatterns #-}
 
 -- |
@@ -53,6 +51,7 @@ data BenchmarkFlags = BenchmarkFlags
   , benchmarkOptions :: [PathTemplate]
   }
   deriving (Show, Generic)
+  deriving (Semigroup, Monoid) via Generically BenchmarkFlags
 
 pattern BenchmarkCommonFlags
   :: Flag VerbosityFlags
@@ -148,10 +147,3 @@ benchmarkOptions' showOrParseArgs =
 
 emptyBenchmarkFlags :: BenchmarkFlags
 emptyBenchmarkFlags = mempty
-
-instance Monoid BenchmarkFlags where
-  mempty = gmempty
-  mappend = (<>)
-
-instance Semigroup BenchmarkFlags where
-  (<>) = gmappend

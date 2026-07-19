@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
-
 module Distribution.Types.PackageVersionConstraint
   ( PackageVersionConstraint (..)
   , thisPackageVersionConstraint
@@ -30,7 +27,7 @@ data PackageVersionConstraint = PackageVersionConstraint PackageName VersionRang
 
 instance Binary PackageVersionConstraint
 instance Structured PackageVersionConstraint
-instance NFData PackageVersionConstraint where rnf = genericRnf
+instance NFData PackageVersionConstraint
 
 instance Pretty PackageVersionConstraint where
   -- Cannot do: PackageVersionConstraint have to be parseable

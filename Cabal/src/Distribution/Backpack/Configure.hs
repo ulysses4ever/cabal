@@ -1,7 +1,5 @@
 {-# LANGUAGE NondecreasingIndentation #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternGuards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE NoMonoLocalBinds #-}
 
@@ -416,7 +414,7 @@ mkLinkedComponentsLocalBuildInfo comp rcs = map go rcs
     go rc =
       case rc_component rc of
         CLib lib ->
-          let convModuleExport (modname', (Module uid modname))
+          let convModuleExport (modname', Module uid modname)
                 | this_uid == unDefUnitId uid
                 , modname' == modname =
                     Installed.ExposedModule modname' Nothing

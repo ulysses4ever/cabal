@@ -1,11 +1,7 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 -- | This module exposes functions to build and register unpacked packages.
@@ -90,6 +86,8 @@ import Distribution.Simple.LocalBuildInfo
   , LibraryName (..)
   )
 import qualified Distribution.Simple.LocalBuildInfo as Cabal
+import Distribution.Simple.PackageIndex (InstalledPackageIndex)
+import qualified Distribution.Simple.PackageIndex as PackageIndex
 import Distribution.Simple.Program
 import qualified Distribution.Simple.Register as Cabal
 import qualified Distribution.Simple.Setup as Cabal
@@ -113,11 +111,15 @@ import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString.Lazy.Char8 as LBS.Char8
 import qualified Data.List.NonEmpty as NE
 
+import Control.Concurrent.STM (TVar, atomically, modifyTVar)
 import Control.Exception (ErrorCall, Handler (..), SomeAsyncException, assert, catches, onException)
+import Data.IORef (newIORef, readIORef, writeIORef)
+import GHC.Clock (getMonotonicTime)
 import System.Directory (canonicalizePath, createDirectoryIfMissing, doesDirectoryExist, listDirectory)
 import System.FilePath (dropDrive, normalise, takeDirectory, (<.>), (</>))
 import System.IO (Handle, IOMode (AppendMode), withFile)
-import System.Semaphore (SemaphoreName (..))
+import System.Semaphore (SemaphoreIdentifier)
+import Text.Printf (printf)
 
 import GHC.Stack
 import Web.Browser (openBrowser)
@@ -147,6 +149,9 @@ data PackageBuildingPhase r where
           :: PackageDBStackCWD
           -> Cabal.RegisterOptions
           -> IO InstalledPackageInfo
+       , getInstalledPackageInfo :: IO InstalledPackageInfo
+        -- ^ Compute the 'InstalledPackageInfo' from the build output,
+        -- without registering with @ghc-pkg@. Deterministic.
        }
     -> PackageBuildingPhase ()
   PBTestPhase :: {runTest :: IO ()} -> PackageBuildingPhase ()
@@ -159,7 +164,7 @@ data PackageBuildingPhase r where
 buildAndRegisterUnpackedPackage
   :: Verbosity
   -> DistDirLayout
-  -> Maybe SemaphoreName
+  -> Maybe SemaphoreIdentifier
   -- ^ Whether to pass a semaphore to build process
   -- this is different to BuildTimeSettings because the
   -- name of the semaphore is created freshly each time.
@@ -169,6 +174,9 @@ buildAndRegisterUnpackedPackage
   -> ElaboratedSharedConfig
   -> ElaboratedInstallPlan
   -> ElaboratedReadyPackage
+  -> TVar InstalledPackageIndex
+  -- ^ Running 'InstalledPackageIndex', updated as @cabal-install@ registers
+  -- packages
   -> SymbolicPath CWD (Dir Pkg)
   -> SymbolicPath Pkg (Dir Dist)
   -> Maybe FilePath
@@ -179,7 +187,10 @@ buildAndRegisterUnpackedPackage
   verbosity
   distDirLayout@DistDirLayout{distTempDirectory}
   maybe_semaphore
-  buildTimeSettings@BuildTimeSettings{buildSettingKeepTempFiles}
+  buildTimeSettings@BuildTimeSettings
+    { buildSettingKeepTempFiles
+    , buildSettingBuildTimings
+    }
   registerLock
   cacheLock
   pkgshared@ElaboratedSharedConfig
@@ -188,13 +199,14 @@ buildAndRegisterUnpackedPackage
     }
   plan
   rpkg@(ReadyPackage pkg)
+  ipiTVar
   srcdir
   builddir
   mlogFile
   delegate = do
     -- Configure phase
     mbLBI <-
-      delegate $
+      timedDelegate $
         PBConfigurePhase $
           annotateFailure mlogFile ConfigureFailed $
             setup
@@ -202,10 +214,10 @@ buildAndRegisterUnpackedPackage
               Cabal.configCommonFlags
               configureFlags
               configureArgs
-              (InLibraryArgs $ InLibraryConfigureArgs pkgshared rpkg)
+              (InLibraryArgs $ InLibraryConfigureArgs pkgshared rpkg ipiTVar)
 
     -- Build phase
-    delegate $
+    timedDelegate $
       PBBuildPhase $
         annotateFailure mlogFile BuildFailed $ do
           setup
@@ -217,7 +229,7 @@ buildAndRegisterUnpackedPackage
 
     -- Haddock phase
     whenHaddock $
-      delegate $
+      timedDelegate $
         PBHaddockPhase $
           annotateFailure mlogFile HaddocksFailed $ do
             setup
@@ -228,7 +240,12 @@ buildAndRegisterUnpackedPackage
               (InLibraryArgs $ InLibraryPostConfigureArgs SHaddockPhase mbLBI)
 
     -- Install phase
-    delegate $
+    let getIpkg = do
+          -- Grab and modify the InstalledPackageInfo. We decide what
+          -- the installed package id is, not the build system.
+          ipkg0 <- generateInstalledPackageInfo mbLBI
+          return ipkg0{Installed.installedUnitId = uid}
+    timedDelegate $
       PBInstallPhase
         { runCopy = \destdir ->
             annotateFailure mlogFile InstallFailed $
@@ -240,11 +257,8 @@ buildAndRegisterUnpackedPackage
                 (InLibraryArgs $ InLibraryPostConfigureArgs SCopyPhase mbLBI)
         , runRegister = \pkgDBStack registerOpts ->
             annotateFailure mlogFile InstallFailed $ do
-              -- We register ourselves rather than via Setup.hs. We need to
-              -- grab and modify the InstalledPackageInfo. We decide what
-              -- the installed package id is, not the build system.
-              ipkg0 <- generateInstalledPackageInfo mbLBI
-              let ipkg = ipkg0{Installed.installedUnitId = uid}
+              -- We register ourselves, rather than via Setup.hs.
+              ipkg <- getIpkg
               criticalSection registerLock $
                 Cabal.registerPackage
                   verbosity
@@ -255,11 +269,12 @@ buildAndRegisterUnpackedPackage
                   ipkg
                   registerOpts
               return ipkg
+        , getInstalledPackageInfo = getIpkg
         }
 
     -- Test phase
     whenTest $
-      delegate $
+      timedDelegate $
         PBTestPhase $
           annotateFailure mlogFile TestsFailed $
             setup
@@ -271,7 +286,7 @@ buildAndRegisterUnpackedPackage
 
     -- Bench phase
     whenBench $
-      delegate $
+      timedDelegate $
         PBBenchPhase $
           annotateFailure mlogFile BenchFailed $
             setup
@@ -283,7 +298,7 @@ buildAndRegisterUnpackedPackage
 
     -- Repl phase
     whenRepl $
-      delegate $
+      timedDelegate $
         PBReplPhase $
           annotateFailure mlogFile ReplFailed $
             setupInteractive
@@ -297,8 +312,35 @@ buildAndRegisterUnpackedPackage
     where
       uid = installedUnitId rpkg
 
+      timedDelegate :: forall r. PackageBuildingPhase r -> IO r
+      timedDelegate phase
+        | buildSettingBuildTimings = do
+            t0 <- getMonotonicTime
+            let
+              printTiming :: String -> IO ()
+              printTiming suffix = do
+                t1 <- getMonotonicTime
+                let
+                  elapsed = t1 - t0
+                  pkgstr = prettyShow (packageId rpkg)
+                  msg =
+                    unwords
+                      [ "[build-timings]"
+                      , buildPhaseName phase
+                      , pkgstr
+                      , -- Print milliseconds (3 decimal places)
+                        printf "%.3fs" elapsed
+                      , suffix
+                      ]
+                notice verbosity msg
+            r <- delegate phase `onException` printTiming "(failed)"
+            !_ <- evaluate r
+            printTiming ""
+            return r
+        | otherwise = delegate phase
+
       comp_par_strat = case maybe_semaphore of
-        Just sem_name -> Cabal.toFlag (getSemaphoreName sem_name)
+        Just sem_ident -> Cabal.toFlag sem_ident
         _ -> Cabal.NoFlag
 
       whenTest action
@@ -455,7 +497,7 @@ buildAndRegisterUnpackedPackage
                       (commonFlags [])
                       pkgConfDest
             setup
-              (Cabal.registerCommand)
+              Cabal.registerCommand
               Cabal.registerCommonFlags
               (return . registerFlags)
               (const [])
@@ -476,13 +518,14 @@ buildAndRegisterUnpackedPackage
 buildInplaceUnpackedPackage
   :: Verbosity
   -> DistDirLayout
-  -> Maybe SemaphoreName
+  -> Maybe SemaphoreIdentifier
   -> BuildTimeSettings
   -> Lock
   -> Lock
   -> ElaboratedSharedConfig
   -> ElaboratedInstallPlan
   -> ElaboratedReadyPackage
+  -> TVar InstalledPackageIndex
   -> BuildStatusRebuild
   -> SymbolicPath CWD (Dir Pkg)
   -> SymbolicPath Pkg (Dir Dist)
@@ -501,6 +544,7 @@ buildInplaceUnpackedPackage
   pkgshared@ElaboratedSharedConfig{pkgConfigPlatform = Platform _ os}
   plan
   rpkg@(ReadyPackage pkg)
+  ipiTVar
   buildStatus
   srcdir
   builddir = do
@@ -523,6 +567,7 @@ buildInplaceUnpackedPackage
       pkgshared
       plan
       rpkg
+      ipiTVar
       srcdir
       builddir
       Nothing -- no log file for inplace builds!
@@ -575,6 +620,10 @@ buildInplaceUnpackedPackage
                     runRegister
                       (elabRegisterPackageDBStack pkg)
                       Cabal.defaultRegisterOptions
+                  -- Keep the per-project running InstalledPackageIndex up to date.
+                  -- See (ProjIPI2) from Note [Per-project InstalledPackageIndex]
+                  -- in Distribution.Client.ProjectBuilding.
+                  atomically $ modifyTVar ipiTVar (PackageIndex.insert ipkg)
                   return (Just ipkg)
                 else return Nothing
 
@@ -645,17 +694,27 @@ buildInplaceUnpackedPackage
         case buildStatus of
           BuildStatusConfigure _ -> action
           _ -> do
-            lbi_wo_programs <- Cabal.getPersistBuildConfig (Just srcdir) builddir
-            -- Restore info about unconfigured programs, since it is not serialized
-            -- TODO: copied from Distribution.Simple.getBuildConfig.
-            let lbi =
-                  lbi_wo_programs
-                    { Cabal.withPrograms =
-                        restoreProgramDb
-                          builtinPrograms
-                          (Cabal.withPrograms lbi_wo_programs)
-                    }
-            return $ InLibraryLBI lbi
+            -- We are skipping reconfiguration, so we recover the
+            -- 'LocalBuildInfo' persisted by the previous 'configure'.
+            mbOldLBI <- Cabal.tryGetPersistBuildConfig (Just srcdir) builddir
+            case mbOldLBI of
+              -- #11942: if the previous LocalBuildInfo was written by an
+              -- external Setup.hs with an incompatible Cabal library version,
+              -- then we must continue to use the external setup method.
+              Left Cabal.ConfigStateFileBadVersion{} -> return NotInLibraryNoLBI
+              -- Other errors reflect genuine problems: re-throw them.
+              Left err -> throwIO err
+              Right lbi_wo_programs -> do
+                -- Restore info about unconfigured programs, since it is not serialized
+                -- TODO: copied from Distribution.Simple.getBuildConfig.
+                let lbi =
+                      lbi_wo_programs
+                        { Cabal.withPrograms =
+                            restoreProgramDb
+                              builtinPrograms
+                              (Cabal.withPrograms lbi_wo_programs)
+                        }
+                return $ InLibraryLBI lbi
 
       whenRebuild, whenReRegister :: IO () -> IO ()
       whenRebuild action
@@ -668,7 +727,10 @@ buildInplaceUnpackedPackage
 
       whenReRegister action =
         case buildStatus of
-          -- We registered the package already
+          -- We registered the package already.
+          -- No need to update ipiTVar: the InstalledPackageInfo for this package
+          -- was picked up at startup.
+          -- See Note [Per-project InstalledPackageIndex] in Distribution.Client.ProjectBuilding.
           BuildStatusBuild (Just _) _ ->
             info verbosity "whenReRegister: previously registered"
           -- There is nothing to register
@@ -687,7 +749,7 @@ buildAndInstallUnpackedPackage
   :: Verbosity
   -> DistDirLayout
   -> StoreDirLayout
-  -> Maybe SemaphoreName
+  -> Maybe SemaphoreIdentifier
   -- ^ Whether to pass a semaphore to build process
   -- this is different to BuildTimeSettings because the
   -- name of the semaphore is created freshly each time.
@@ -697,6 +759,7 @@ buildAndInstallUnpackedPackage
   -> ElaboratedSharedConfig
   -> ElaboratedInstallPlan
   -> ElaboratedReadyPackage
+  -> TVar InstalledPackageIndex
   -> SymbolicPath CWD (Dir Pkg)
   -> SymbolicPath Pkg (Dir Dist)
   -> IO BuildResult
@@ -716,6 +779,7 @@ buildAndInstallUnpackedPackage
     }
   plan
   rpkg@(ReadyPackage pkg)
+  ipiTVar
   srcdir
   builddir = do
     createDirectoryIfMissingVerbose verbosity True (interpretSymbolicPath (Just srcdir) builddir)
@@ -743,6 +807,7 @@ buildAndInstallUnpackedPackage
       pkgshared
       plan
       rpkg
+      ipiTVar
       srcdir
       builddir
       mlogFile
@@ -758,8 +823,12 @@ buildAndInstallUnpackedPackage
           noticeProgress ProgressHaddock
           _monitors <- runHaddock
           return ()
-        PBInstallPhase{runCopy, runRegister} -> do
+        PBInstallPhase{runCopy, runRegister, getInstalledPackageInfo} -> do
           noticeProgress ProgressInstalling
+
+          -- Create an IORef used to retrieve the InstalledPackageInfo computed
+          -- by running "register".
+          ipkgRef <- newIORef Nothing
 
           let registerPkg
                 | not (elabRequiresRegistration pkg) =
@@ -772,14 +841,15 @@ buildAndInstallUnpackedPackage
                           == storePackageDBStack compiler (elabPackageDbs pkg)
                       )
                       (return ())
-                    _ <-
+                    ipkg <-
                       runRegister
                         (elabRegisterPackageDBStack pkg)
                         Cabal.defaultRegisterOptions
                           { Cabal.registerMultiInstance = True
                           , Cabal.registerSuppressFilesCheck = True
                           }
-                    return ()
+                    -- Write the InstalledPackageInfo to the IORef
+                    writeIORef ipkgRef (Just ipkg)
 
           -- Actual installation
           void $
@@ -790,6 +860,20 @@ buildAndInstallUnpackedPackage
               uid
               (copyPkgFiles verbosity pkgshared pkg runCopy)
               registerPkg
+
+          -- Keep the per-project running InstalledPackageIndex TVar up to date.
+          -- This must run regardless of whether newStoreEntry won or lost the
+          -- race (UseNewStoreEntry/UseExistingStoreEntry).
+          --
+          -- See (ProjIPI2) in Note [Per-project InstalledPackageIndex].
+          when (elabRequiresRegistration pkg) $ do
+            -- If we won the race, we use the InstalledPackageInfo that was
+            -- computed by 'runRegister'. If we lost, then we fall back to
+            -- 'getInstalledPackageInfo' which re-runs 'Cabal register'
+            -- (takes ~100ms).
+            mipkg <- readIORef ipkgRef
+            ipkg <- maybe getInstalledPackageInfo return mipkg
+            atomically $ modifyTVar ipiTVar (PackageIndex.insert ipkg)
 
         -- No tests on install
         PBTestPhase{} -> return ()
@@ -918,7 +1002,7 @@ copyPkgFiles verbosity pkgshared pkg runCopy tmpDir = do
   where
     listFilesRecursive :: FilePath -> IO [FilePath]
     listFilesRecursive path = do
-      files <- fmap (path </>) <$> (listDirectory path)
+      files <- fmap (path </>) <$> listDirectory path
       allFiles <- for files $ \file -> do
         isDir <- doesDirectoryExist file
         if isDir
@@ -957,6 +1041,16 @@ annotateFailure mlogFile annotate action =
 --------------------------------------------------------------------------------
 -- * Other Utils
 --------------------------------------------------------------------------------
+
+-- | Display name for each build phase, used in timing output.
+buildPhaseName :: PackageBuildingPhase r -> String
+buildPhaseName PBConfigurePhase{} = "configure"
+buildPhaseName PBBuildPhase{} = "build"
+buildPhaseName PBHaddockPhase{} = "haddock"
+buildPhaseName PBReplPhase{} = "repl"
+buildPhaseName PBInstallPhase{} = "install"
+buildPhaseName PBTestPhase{} = "test"
+buildPhaseName PBBenchPhase{} = "bench"
 
 hasValidHaddockTargets :: ElaboratedConfiguredPackage -> Bool
 hasValidHaddockTargets ElaboratedConfiguredPackage{..}

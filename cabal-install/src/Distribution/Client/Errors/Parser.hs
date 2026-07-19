@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-
 module Distribution.Client.Errors.Parser where
 
 import Distribution.Client.Compat.Prelude
@@ -244,7 +241,7 @@ renderParseErrorGeneral header err_header provenance extra_info errors warnings 
       [_] -> "Error"
       _ -> "Errors"
 
-    header' = if null header then "" else (" " <> header)
+    header' = if null header then "" else " " <> header
 
     renderedErrors = map renderError (sortBy (comparing perrorPosition) errors)
     renderedWarnings = map renderWarning (sortBy (comparing pwarningPosition) warnings)

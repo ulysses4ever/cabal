@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveGeneric #-}
-
 module Distribution.Parsec.Error
   ( PError (..)
   , PErrorWithSource (..)
@@ -23,7 +20,7 @@ data PErrorWithSource src = PErrorWithSource {perrorSource :: !(PSource src), pe
   deriving (Show, Generic, Functor)
 
 instance Binary PError
-instance NFData PError where rnf = genericRnf
+instance NFData PError
 
 showPError :: FilePath -> PError -> String
 showPError fpath (PError pos msg) =

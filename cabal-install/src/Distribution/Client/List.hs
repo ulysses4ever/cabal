@@ -1,9 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
------------------------------------------------------------------------------
-
------------------------------------------------------------------------------
-
 -- |
 -- Module      :  Distribution.Client.List
 -- Copyright   :  (c) David Himmelstrup 2005
@@ -31,10 +25,7 @@ import Distribution.Package
   , packageName
   , packageVersion
   )
-import Distribution.PackageDescription
-  ( PackageFlag (..)
-  , unFlagName
-  )
+import Distribution.PackageDescription (PackageFlag (..), repoKind, repoLocation, sourceRepos, unFlagName)
 import qualified Distribution.PackageDescription as Source
 import Distribution.PackageDescription.Configuration
   ( flattenPackageDescription
@@ -314,7 +305,7 @@ info
         installedPkgIndex
         sourcePkgIndex
         (NamedPackage name props)
-          | null (selectedInstalledPkgs) && null (selectedSourcePkgs) =
+          | null selectedInstalledPkgs && null selectedSourcePkgs =
               Left $ GatherPkgInfo name (simplifyVersionRange verConstraint)
           | otherwise =
               Right $
@@ -607,14 +598,7 @@ mergePackageInfo versionPref installedPkgs sourcePkgs selectedPkg showVer =
             installed
       , bugReports = maybe mempty Source.bugReports source
       , sourceRepo =
-          fromMaybe mempty
-            . join
-            . fmap
-              ( uncons Nothing Source.repoLocation
-                  . sortBy (comparing Source.repoKind)
-                  . Source.sourceRepos
-              )
-            $ source
+          fromMaybe mempty $ (uncons Nothing repoLocation . sortBy (comparing repoKind) . sourceRepos) =<< source
       , -- TODO: installed package info is missing synopsis
         synopsis = maybe mempty Source.synopsis source
       , description =
@@ -650,11 +634,7 @@ mergePackageInfo versionPref installedPkgs sourcePkgs selectedPkg showVer =
             source
             (map InstalledDependency . Installed.depends)
             installed
-      , haddockHtml =
-          fromMaybe ""
-            . join
-            . fmap (listToMaybe . Installed.haddockHTMLs)
-            $ installed
+      , haddockHtml = fromMaybe "" $ (listToMaybe . Installed.haddockHTMLs) =<< installed
       , haveTarball = False
       }
   where

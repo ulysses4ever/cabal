@@ -1,13 +1,6 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
-
--- simplifier goes nuts otherwise
-#if __GLASGOW_HASKELL__ < 806
-{-# OPTIONS_GHC -funfolding-use-threshold=30 #-}
-#endif
 
 module UnitTests.Distribution.Client.ProjectConfig (tests) where
 
@@ -445,9 +438,8 @@ instance Arbitrary ProjectConfig where
         , projectConfigProvenance = x6'
         , projectConfigLocalPackages = x7'
         , projectConfigSpecificPackage =
-            ( MapMappend
-                (fmap getNonMEmpty x8')
-            )
+            MapMappend
+              (fmap getNonMEmpty x8')
         , projectConfigAllPackages = x9'
         }
       | ((x0', x1', x2', x3'), (x4', x5', x6', x7', x8', x9')) <-
@@ -525,6 +517,7 @@ instance Arbitrary ProjectConfigBuildOnly where
       <*> (fmap getShortToken <$> arbitrary)
       <*> (fmap getShortToken <$> arbitrary)
       <*> arbitrary
+      <*> arbitrary
     where
       arbitraryNumJobs = fmap (fmap getPositive) <$> arbitrary
 
@@ -549,6 +542,7 @@ instance Arbitrary ProjectConfigBuildOnly where
       , projectConfigCacheDir = x15
       , projectConfigLogsDir = x16
       , projectConfigClientInstallFlags = x17
+      , projectConfigBuildTimings = x20
       } =
       [ ProjectConfigBuildOnly
         { projectConfigVerbosity = x00'
@@ -570,17 +564,18 @@ instance Arbitrary ProjectConfigBuildOnly where
         , projectConfigCacheDir = x15
         , projectConfigLogsDir = x16
         , projectConfigClientInstallFlags = x17'
+        , projectConfigBuildTimings = x20'
         }
       | ( (x00', x01', x02', x03', x04')
           , (x05', x06', x07', x09')
           , (x10', x11', x12', x14')
-          , (x17', x18', x19')
+          , (x17', x18', x19', x20')
           ) <-
           shrink
             ( (x00, x01, x02, x03, x04)
             , (x05, x06, x07, preShrink_NumJobs x09)
             , (x10, x11, x12, x14)
-            , (x17, x18, x19)
+            , (x17, x18, x19, x20)
             )
       ]
       where
@@ -771,7 +766,7 @@ instance Arbitrary PackageConfig where
       arbitraryProgramName =
         elements
           [ programName prog
-          | (prog, _) <- knownPrograms (defaultProgramDb)
+          | (prog, _) <- knownPrograms defaultProgramDb
           ]
 
   shrink

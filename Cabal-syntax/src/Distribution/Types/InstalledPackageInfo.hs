@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -100,7 +99,7 @@ data InstalledPackageInfo = InstalledPackageInfo
 instance Binary InstalledPackageInfo
 instance Structured InstalledPackageInfo
 
-instance NFData InstalledPackageInfo where rnf = genericRnf
+instance NFData InstalledPackageInfo
 
 instance Package.HasMungedPackageId InstalledPackageInfo where
   mungedId = mungedPackageId

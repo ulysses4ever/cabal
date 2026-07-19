@@ -1,13 +1,6 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections #-}
-
------------------------------------------------------------------------------
 
 -- |
 -- Module      :  Distribution.Simple.Configure
@@ -34,6 +27,7 @@ module Distribution.Simple.Configure
   ( configure
   , configure_setupHooks
   , computePackageInfo
+  , computePackageInfoFromIndex
   , configureFinal
   , runPreConfPackageHook
   , runPostConfPackageHook
@@ -438,7 +432,7 @@ findDistPref
   -> IO (SymbolicPath Pkg (Dir Dist))
 findDistPref defDistPref overrideDistPref = do
   envDistPref <- parseEnvDistPref <$> lookupEnv "CABAL_BUILDDIR"
-  return $ fromFlagOrDefault defDistPref (mappend envDistPref overrideDistPref)
+  return $ fromFlagOrDefault defDistPref (envDistPref <> overrideDistPref)
   where
     parseEnvDistPref env =
       case env of
@@ -458,13 +452,28 @@ findDistPrefOrDefault
 findDistPrefOrDefault = findDistPref defaultDistPref
 
 -- | Perform the \"@.\/setup configure@\" action.
---  Returns the @.setup-config@ file.
+--
+-- Returns the @LocalBuildInfo@, also writing it to the @setup-config@ file.
 configure
   :: (GenericPackageDescription, HookedBuildInfo)
   -> ConfigFlags
   -> IO LocalBuildInfo
-configure p = configure_setupHooks noConfigureHooks p defaultVerbosityHandles
+configure p cfg = do
+  lbi <- configure_setupHooks noConfigureHooks p defaultVerbosityHandles cfg
+  -- Write the 'LocalBuildInfo' to the @setup-config@ file.
+  --
+  -- NB: the shared 'configure_setupHooks'/'configureFinal' functions deliberately
+  -- don't include this logic, as it is the responsibility of each top-level
+  -- configure entry point.
+  let distPref = fromFlag $ configDistPref cfg
+      mbWorkDir = flagToMaybe $ configWorkingDir cfg
+  writePersistBuildConfig mbWorkDir distPref lbi
+  return lbi
 
+-- | Run the @Cabal@ library configure phase.
+--
+-- NB: this function does /not/ persist the resulting 'LocalBuildInfo' to the
+-- @setup-config@ file; that is the responsibility of callers.
 configure_setupHooks
   :: ConfigureHooks
   -> (GenericPackageDescription, HookedBuildInfo)
@@ -545,8 +554,6 @@ configureFinal
     } =
     do
       let verbosity = mkVerbosity verbHandles (fromFlag (configVerbosity cfg))
-          distPref = fromFlag $ configDistPref cfg
-          mbWorkDir = flagToMaybe $ configWorkingDir cfg
 
       -- Apply compiler capability checks to the incoming build options
       -- (idempotent).
@@ -607,10 +614,7 @@ configureFinal
           pkgInfo
           pkgDescr
           enabledComps
-      lbi <- configureComponents verbHandles lbc2 pbd3 installedPkgSet promisedDeps externalPkgDeps
-      writePersistBuildConfig mbWorkDir distPref lbi
-
-      return lbi
+      configureComponents verbHandles lbc2 pbd3 installedPkgSet promisedDeps externalPkgDeps
 
 runPreConfPackageHook
   :: ConfigFlags
@@ -903,6 +907,8 @@ buildOptionsFromConfigFlags verbosity cfg comp = do
         , exeCoverage = False
         , libCoverage = False
         , relocatable = fromFlagOrDefault False $ configRelocatable cfg
+        , programPrefix = flagToMaybe $ configProgPrefix cfg
+        , programSuffix = flagToMaybe $ configProgSuffix cfg
         }
 
 -- | Adjust 'LBC.BuildOptions' to be compatible with the given 'Compiler' and
@@ -1180,10 +1186,22 @@ computePackageInfo verbHandles cfg lbc0 g_pkg_descr comp = do
       mbWorkDir
       packageDbs
       programDb0
+  computePackageInfoFromIndex verbHandles cfg g_pkg_descr installedPackageSet
 
-  -- The set of package names which are "shadowed" by internal
-  -- packages, and which component they map to
-  let internalPackageSet :: Set LibraryName
+-- | Like 'computePackageInfo' but takes a given 'InstalledPackageIndex'
+-- instead of needing to query the @hc-pkg@ program to obtain it.
+computePackageInfoFromIndex
+  :: VerbosityHandles
+  -> ConfigFlags
+  -> GenericPackageDescription
+  -> InstalledPackageIndex
+  -> IO ([PackageVersionConstraint], PackageInfo)
+computePackageInfoFromIndex verbHandles cfg g_pkg_descr installedPackageSet = do
+  let common = configCommonFlags cfg
+      verbosity = mkVerbosity verbHandles (fromFlag $ setupVerbosity common)
+      -- The set of package names which are "shadowed" by internal
+      -- packages, and which component they map to
+      internalPackageSet :: Set LibraryName
       internalPackageSet = getInternalLibraries g_pkg_descr
 
   -- Some sanity checks related to dynamic/static linking.
@@ -1297,31 +1315,31 @@ addExtraIncludeLibDirsFromConfigFlags pkg_descr cfg =
         l
           { libBuildInfo =
               libBuildInfo l
-                `mappend` extraBi
+                <> extraBi
           }
       modifyExecutable e =
         e
           { buildInfo =
               buildInfo e
-                `mappend` extraBi
+                <> extraBi
           }
       modifyForeignLib f =
         f
           { foreignLibBuildInfo =
               foreignLibBuildInfo f
-                `mappend` extraBi
+                <> extraBi
           }
       modifyTestsuite t =
         t
           { testBuildInfo =
               testBuildInfo t
-                `mappend` extraBi
+                <> extraBi
           }
       modifyBenchmark b =
         b
           { benchmarkBuildInfo =
               benchmarkBuildInfo b
-                `mappend` extraBi
+                <> extraBi
           }
    in pkg_descr
         { library = modifyLib `fmap` library pkg_descr
@@ -1369,14 +1387,14 @@ finalCheckPackage
       -- Check languages and extensions
       -- TODO: Move this into a helper function.
       let langlist =
-            nub $
+            ordNub $
               mapMaybe defaultLanguage (enabledBuildInfos pkg_descr enabled)
       let langs = unsupportedLanguages comp langlist
       unless (null langs) $
         dieWithException verbosity $
           UnsupportedLanguages (packageId pkg_descr) (compilerId comp) (map prettyShow langs)
       let extlist =
-            nub $
+            ordNub $
               concatMap
                 allExtensions
                 (enabledBuildInfos pkg_descr enabled)
@@ -1731,7 +1749,7 @@ dependencySatisfiable
               else Satisfied
 
       internalDepSatisfiable =
-        let missingLibraries = (NES.toSet sublibs) `Set.difference` packageLibraries
+        let missingLibraries = NES.toSet sublibs `Set.difference` packageLibraries
          in case nonEmpty $ Set.toList missingLibraries of
               Nothing -> Satisfied
               Just missingLibraries' -> Unsatisfied $ MissingLibrary missingLibraries'
@@ -1908,7 +1926,7 @@ configureCoverage verbosity cfg comp = do
       tryLibCoverage =
         fromFlagOrDefault
           tryExeCoverage
-          (mappend (configCoverage cfg) (configLibCoverage cfg))
+          (configCoverage cfg <> configLibCoverage cfg)
   -- TODO: Should we also enforce something here on that --coverage-for cannot
   -- include indefinite components or instantiations?
   if coverageSupported comp
@@ -1957,7 +1975,7 @@ computeEffectiveProfiling cfg =
       tryExeProfiling =
         fromFlagOrDefault
           False
-          (mappend (configProf cfg) (configProfExe cfg))
+          (configProf cfg <> configProfExe cfg)
       tryLibProfiling =
         fromFlagOrDefault
           (tryExeProfiling && not dynamicExe)
@@ -1985,10 +2003,7 @@ configureProfiling verbosity cfg comp = do
       tryLibProfileLevel =
         fromFlagOrDefault
           ProfDetailDefault
-          ( mappend
-              (configProfDetail cfg)
-              (configProfLibDetail cfg)
-          )
+          (configProfDetail cfg <> configProfLibDetail cfg)
 
       checkProfileLevel (ProfDetailOther other) = do
         warn
@@ -2586,7 +2601,7 @@ configurePkgconfigPackages verbosity pkg_descr progdb enabled
     -- Adds pkgconfig dependencies to the build info for a component
     addPkgConfigBI compBI setCompBI comp = do
       bi <- pkgconfigBuildInfo (pkgconfigDepends (compBI comp))
-      return $ setCompBI comp (compBI comp `mappend` bi)
+      return $ setCompBI comp (compBI comp <> bi)
 
     -- Adds pkgconfig dependencies to the build info for a library
     addPkgConfigBILib = addPkgConfigBI libBuildInfo $
@@ -2607,7 +2622,7 @@ configurePkgconfigPackages verbosity pkg_descr progdb enabled
     pkgconfigBuildInfo :: [PkgconfigDependency] -> IO BuildInfo
     pkgconfigBuildInfo [] = return mempty
     pkgconfigBuildInfo pkgdeps = do
-      let pkgs = nub [prettyShow pkg | PkgconfigDependency pkg _ <- pkgdeps]
+      let pkgs = ordNub [prettyShow pkg | PkgconfigDependency pkg _ <- pkgdeps]
       ccflags <- pkgconfig ("--cflags" : pkgs)
       ldflags <- pkgconfig ("--libs" : pkgs)
       ldflags_static <- pkgconfig ("--libs" : "--static" : pkgs)
@@ -2628,8 +2643,8 @@ ccLdOptionsBuildInfo cflags ldflags ldflags_static =
   let (includeDirs', cflags') = partition ("-I" `isPrefixOf`) cflags
       (extraLibs', ldflags') = partition ("-l" `isPrefixOf`) ldflags
       (extraLibDirs', ldflags'') = partition ("-L" `isPrefixOf`) ldflags'
-      (extraLibsStatic') = filter ("-l" `isPrefixOf`) ldflags_static
-      (extraLibDirsStatic') = filter ("-L" `isPrefixOf`) ldflags_static
+      extraLibsStatic' = filter ("-l" `isPrefixOf`) ldflags_static
+      extraLibDirsStatic' = filter ("-L" `isPrefixOf`) ldflags_static
    in mempty
         { includeDirs = map (makeSymbolicPath . drop 2) includeDirs'
         , extraLibs = map (drop 2) extraLibs'
@@ -2993,7 +3008,7 @@ checkRelocatable verbosity pkg lbi =
     packagePrefixRelative =
       unless (relativeInstallDirs installDirs) $
         dieWithException verbosity $
-          InstallDirsNotPrefixRelative (installDirs)
+          InstallDirsNotPrefixRelative installDirs
       where
         -- NB: should be good enough to check this against the default
         -- component ID, but if we wanted to be strictly correct we'd

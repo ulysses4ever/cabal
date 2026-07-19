@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-
 module Distribution.Types.ExposedModule where
 
 import Distribution.Compat.Prelude
@@ -42,4 +40,4 @@ instance Parsec ExposedModule where
 
 instance Binary ExposedModule
 instance Structured ExposedModule
-instance NFData ExposedModule where rnf = genericRnf
+instance NFData ExposedModule

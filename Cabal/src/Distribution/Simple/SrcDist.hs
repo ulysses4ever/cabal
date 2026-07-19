@@ -1,9 +1,4 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TupleSections #-}
-
------------------------------------------------------------------------------
 
 -- NOTE: FIX: we don't have a great way of testing this module, since
 -- we can't easily look inside a tarball once its created.
@@ -429,7 +424,7 @@ filterAutogenModules pkg_descr0 =
         }
     pathsModule = autogenPathsModuleName pkg_descr0
     packageInfoModule = autogenPackageInfoModuleName pkg_descr0
-    filterFunction bi = \mn ->
+    filterFunction bi mn =
       mn /= pathsModule
         && mn /= packageInfoModule
         && notElem mn (autogenModules bi)

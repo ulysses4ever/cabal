@@ -1,7 +1,7 @@
 cabal-version: 2.2
 name:          Cabal-tests
 version:       3
-copyright:     2003-2025, Cabal Development Team (see AUTHORS file)
+copyright:     2003-2026, Cabal Development Team (see AUTHORS file)
 license:       BSD-3-Clause
 license-file:  LICENSE
 author:        Cabal Development Team <cabal-devel@haskell.org>
@@ -48,6 +48,7 @@ test-suite unit-tests
     UnitTests.Distribution.Utils.Generic
     UnitTests.Distribution.Utils.Json
     UnitTests.Distribution.Utils.NubList
+    UnitTests.Distribution.Utils.Path
     UnitTests.Distribution.Utils.ShortText
     UnitTests.Distribution.Utils.Structured
     UnitTests.Distribution.Version
@@ -55,7 +56,7 @@ test-suite unit-tests
   main-is:          UnitTests.hs
   build-depends:
     , array
-    , base                >=4.13    && <5
+    , base                >=4.17    && <5
     , bytestring
     , Cabal
     , Cabal-described
@@ -74,7 +75,7 @@ test-suite unit-tests
     , text
 
   ghc-options:      -Wall
-  default-language: Haskell2010
+  default-language: GHC2021
 
 test-suite parser-tests
   type:             exitcode-stdio-1.0
@@ -95,7 +96,7 @@ test-suite parser-tests
     , tree-diff         >=0.1     && <0.4
 
   ghc-options:      -Wall
-  default-language: Haskell2010
+  default-language: GHC2021
 
 test-suite check-tests
   type:             exitcode-stdio-1.0
@@ -113,7 +114,7 @@ test-suite check-tests
     , tasty-golden  >=2.3.1.1 && <2.4
 
   ghc-options:      -Wall
-  default-language: Haskell2010
+  default-language: GHC2021
 
 test-suite custom-setup-tests
   type:             exitcode-stdio-1.0
@@ -131,7 +132,7 @@ test-suite custom-setup-tests
     , filepath
     , process
 
-  default-language: Haskell2010
+  default-language: GHC2021
 
 test-suite hackage-tests
   type:               exitcode-stdio-1.0
@@ -160,7 +161,7 @@ test-suite hackage-tests
 
   ghc-options:        -Wall -rtsopts -threaded
   default-extensions: CPP
-  default-language:   Haskell2010
+  default-language:   GHC2021
 
 test-suite rpmvercmp
   type:             exitcode-stdio-1.0
@@ -180,10 +181,10 @@ test-suite rpmvercmp
   c-sources:        tests/cbits/rpmvercmp.c
   cc-options:       -Wall
   ghc-options:      -Wall
-  default-language: Haskell2010
+  default-language: GHC2021
 
 test-suite no-thunks-test
-  default-language: Haskell2010
+  default-language: GHC2021
   ghc-options:      -Wall
   type:             exitcode-stdio-1.0
   main-is:          NoThunks.hs
@@ -209,4 +210,4 @@ executable ghc-supported-extensions
     , Cabal
 
   ghc-options:      -Wall
-  default-language: Haskell2010
+  default-language: GHC2021

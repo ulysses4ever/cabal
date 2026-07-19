@@ -1,7 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE RankNTypes #-}
-
 module Distribution.Types.ModuleRenaming
   ( ModuleRenaming (..)
   , interpModuleRenaming
@@ -68,7 +64,7 @@ isDefaultRenaming _ = False
 instance Binary ModuleRenaming
 instance Structured ModuleRenaming
 
-instance NFData ModuleRenaming where rnf = genericRnf
+instance NFData ModuleRenaming
 
 -- NB: parentheses are mandatory, because later we may extend this syntax
 -- to allow "hiding (A, B)" or other modifier words.

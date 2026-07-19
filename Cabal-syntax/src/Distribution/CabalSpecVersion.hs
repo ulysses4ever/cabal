@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
-
 module Distribution.CabalSpecVersion where
 
 import Distribution.Compat.Prelude
@@ -36,16 +33,19 @@ data CabalSpecVersion
     CabalSpecV3_12
   | CabalSpecV3_14
   | CabalSpecV3_16
+  | -- 3.18: remove build-type: Make
+    CabalSpecV3_18
   deriving (Eq, Ord, Show, Read, Enum, Bounded, Data, Generic)
 
 instance Binary CabalSpecVersion
 instance Structured CabalSpecVersion
-instance NFData CabalSpecVersion where rnf = genericRnf
+instance NFData CabalSpecVersion
 
 -- | Show cabal spec version, but not the way in the .cabal files
 --
 -- @since 3.0.0.0
 showCabalSpecVersion :: CabalSpecVersion -> String
+showCabalSpecVersion CabalSpecV3_18 = "3.18"
 showCabalSpecVersion CabalSpecV3_16 = "3.16"
 showCabalSpecVersion CabalSpecV3_14 = "3.14"
 showCabalSpecVersion CabalSpecV3_12 = "3.12"
@@ -76,6 +76,7 @@ cabalSpecLatest = CabalSpecV3_16
 -- It may fail if for recent versions the version is not exact.
 cabalSpecFromVersionDigits :: [Int] -> Maybe CabalSpecVersion
 cabalSpecFromVersionDigits v
+  | v == [3, 18] = Just CabalSpecV3_18
   | v == [3, 16] = Just CabalSpecV3_16
   | v == [3, 14] = Just CabalSpecV3_14
   | v == [3, 12] = Just CabalSpecV3_12
@@ -101,6 +102,7 @@ cabalSpecFromVersionDigits v
 
 -- | @since 3.4.0.0
 cabalSpecToVersionDigits :: CabalSpecVersion -> [Int]
+cabalSpecToVersionDigits CabalSpecV3_18 = [3, 18]
 cabalSpecToVersionDigits CabalSpecV3_16 = [3, 16]
 cabalSpecToVersionDigits CabalSpecV3_14 = [3, 14]
 cabalSpecToVersionDigits CabalSpecV3_12 = [3, 12]

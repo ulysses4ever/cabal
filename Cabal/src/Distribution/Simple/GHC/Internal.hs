@@ -1,8 +1,4 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RankNTypes #-}
-
------------------------------------------------------------------------------
 
 -- |
 -- Module      :  Distribution.Simple.GHC.Internal
@@ -183,7 +179,7 @@ configureToolchain _implInfo ghcProg ghcInfo =
     findProg progName extraPath v searchpath =
       findProgramOnSearchPath v searchpath' progName
       where
-        searchpath' = (map ProgramSearchPathDir extraPath) ++ searchpath
+        searchpath' = map ProgramSearchPathDir extraPath ++ searchpath
 
     -- Read tool locations from the 'ghc --info' output. Useful when
     -- cross-compiling.
@@ -356,13 +352,21 @@ splitCandCxxOptions
   -> LocalBuildInfo
   -> BuildInfo
   -> ComponentLocalBuildInfo
-  -> SymbolicPathX 'AllowAbsolute Pkg (Dir Artifacts)
-  -> SymbolicPathX 'AllowAbsolute Pkg File
+  -> SymbolicPath Pkg (Dir Artifacts)
+  -> SymbolicPath Pkg File
   -> GhcOptions
 splitCandCxxOptions source verbosity lbi bi clbi odir filename = case source of
   CxxProgram ->
-    setCcProgram $ setCcOptions $ sourcesGhcOptions verbosity lbi bi clbi odir filename
+    -- For C++ sources: reset ccOptions for GHC < 8.10, because on those
+    -- old GHCs there's no -optcxx flag — all options go through -optc.
+    -- Without this reset, C-specific flags (ccOptions) would leak into
+    -- C++ compilation via -optc, which is wrong.
+    setGppProgram $ setCcOptions $ sourcesGhcOptions verbosity lbi bi clbi odir filename
   CcProgram ->
+    -- For C sources: reset cxxOptions for GHC < 8.10, because on those
+    -- old GHCs there's no -optcxx flag — all options go through -optc.
+    -- Without this reset, C++-specific flags (cxxOptions) would leak into
+    -- C compilation via -optc, which is wrong.
     setCcProgram $ setCxxOptions $ sourcesGhcOptions verbosity lbi bi clbi odir filename
   where
     setCcOptions xxx =
@@ -406,6 +410,29 @@ splitCandCxxOptions source verbosity lbi bi clbi odir filename = case source of
           -- see example in cabal-testsuite/PackageTests/FFI/ForeignOptsPgmc
           ghcOptCcProgram = maybeToFlag $ programPath <$> lookupProgram gccProgram (withPrograms lbi)
         }
+    setGppProgram xxx =
+      xxx
+        { -- We explicitly pass the C++ compiler via -pgmcxx because GHC >= 9.4
+          -- does not automatically detect it from the toolchain. Without this GHC
+          -- falls back to a gcc as a C++ compiler.
+          -- Related: #11805
+          ghcOptGppProgram =
+            ghcOptionsSince
+              (mkVersion [9, 4])
+              (compiler lbi)
+              (maybeToFlag $ programPath <$> lookupProgram gppProgram (withPrograms lbi))
+        , -- For GHC < 9.4, which does not support -pgmcxx, we fall back to
+          -- passing the C++ compiler via -pgmc. This ensures C++ sources are
+          -- compiled with the correct compiler even on older GHCs.
+          -- Note: we use gppProgram (C++ compiler), NOT gccProgram (C compiler),
+          -- because this path is specifically for C++ source files.
+          -- Related: #11805
+          ghcOptCcProgram =
+            ghcOptionsBefore
+              (mkVersion [9, 4])
+              (compiler lbi)
+              (maybeToFlag $ programPath <$> lookupProgram gppProgram (withPrograms lbi))
+        }
 
 sourcesGhcOptions
   :: VerbosityLevel
@@ -422,6 +449,9 @@ sourcesGhcOptions verbosity lbi bi clbi odir filename =
     , ghcOptInputFiles = toNubListR [filename]
     , ghcOptObjDir = toFlag odir
     , ghcOptPackages = toNubListR $ mkGhcOptPackages (promisedPkgs lbi) clbi
+    , -- cpp-options apply only to .hs files; GHC ignores -optP for non-Haskell
+      -- files (and since 9.10 this behavior is explicit/enforced)
+      ghcOptCppOptions = []
     }
 
 optimizationCFlags :: LocalBuildInfo -> [String]
@@ -454,6 +484,15 @@ ghcOptionsSince ver comp defOptions =
       | otherwise -> mempty
     Nothing -> mempty
 
+-- Applies options only if the GHC version is less than the given one.
+ghcOptionsBefore :: Monoid a => Version -> Compiler -> a -> a
+ghcOptionsBefore ver comp defOptions =
+  case compilerCompatVersion GHC comp of
+    Just v
+      | v < ver -> defOptions
+      | otherwise -> mempty
+    Nothing -> mempty
+
 componentGhcOptions
   :: VerbosityLevel
   -> LocalBuildInfo
@@ -466,7 +505,7 @@ componentGhcOptions verbosity lbi bi clbi odir =
    in (linkGhcOptions verbosity lbi bi clbi)
         { ghcOptSourcePath =
             toNubListR $
-              (hsSourceDirs bi)
+              hsSourceDirs bi
                 ++ [coerceSymbolicPath odir]
                 ++ [autogenComponentModulesDir lbi clbi]
                 ++ [autogenPackageModulesDir lbi]
@@ -541,7 +580,7 @@ linkGhcOptions verbosity lbi bi clbi =
         , ghcOptLanguage = toFlag (fromMaybe Haskell98 (defaultLanguage bi))
         , -- Unsupported extensions have already been checked by configure
           ghcOptExtensions = toNubListR $ usedExtensions bi
-        , ghcOptExtensionMap = Map.fromList . compilerExtensions $ (compiler lbi)
+        , ghcOptExtensionMap = Map.fromList . compilerExtensions $ compiler lbi
         , -- Use -pgmc to ensure that Cabal always passes cc-options, ld-options to GHC (#4435, #9801)
           -- We can only do this on GHC >= 9.4, as we need https://gitlab.haskell.org/ghc/ghc/-/merge_requests/6949
           -- Without that GHC MR, this change would cause GHC to never pass -no-pie when linking,
@@ -552,6 +591,12 @@ linkGhcOptions verbosity lbi bi clbi =
               (mkVersion [9, 4])
               (compiler lbi)
               (maybeToFlag $ programPath <$> lookupProgram gccProgram (withPrograms lbi))
+        , -- The assumption that the C++ compiler is part of the toolchain is only since ghc-9.4.
+          ghcOptGppProgram =
+            ghcOptionsSince
+              (mkVersion [9, 4])
+              (compiler lbi)
+              (maybeToFlag $ programPath <$> lookupProgram gppProgram (withPrograms lbi))
         }
   where
     exe_paths =

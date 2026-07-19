@@ -4,3 +4,4 @@ Error:
     Non-library component has unfilled requirements:
         UnfilledSig brought into scope by build-depends: Fail1
     In the stanza executable foo
+    CallStack (from HasCallStack): <SNIPPED>

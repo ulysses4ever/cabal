@@ -1,6 +1,4 @@
-{-# LANGUAGE DeriveTraversable   #-}
 {-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 module Distribution.Utils.GrammarRegex (
     -- * Regular expressions
     GrammarRegex (..),
@@ -77,7 +75,6 @@ instance Semigroup (GrammarRegex a) where
 
 instance Monoid (GrammarRegex a) where
     mempty = REAppend []
-    mappend = (<>)
 
 -------------------------------------------------------------------------------
 -- Smart constructors

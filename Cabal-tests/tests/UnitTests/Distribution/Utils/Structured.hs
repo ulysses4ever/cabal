@@ -18,7 +18,7 @@ tests = testGroup "Distribution.Utils.Structured"
     [ testCase "VersionRange" $
       md5Check (Proxy :: Proxy VersionRange) 0x39396fc4f2d751aaa1f94e6d843f03bd
     , testCase "SPDX.License" $
-      md5Check (Proxy :: Proxy License) 0xf90ab6c2e4ffbc71b2e8c12531e50356
+      md5Check (Proxy :: Proxy License) 0x2804cd5d2137508059c16ac2449741d2
     -- The difference is in encoding of newtypes
     , testCase "GenericPackageDescription" $ md5CheckGenericPackageDescription (Proxy :: Proxy GenericPackageDescription)
     , testCase "LocalBuildInfo" $ md5CheckLocalBuildInfo (Proxy :: Proxy LocalBuildInfo)
@@ -27,10 +27,14 @@ tests = testGroup "Distribution.Utils.Structured"
 md5Check :: Structured a => Proxy a -> Integer -> Assertion
 md5Check proxy md5Int = structureHash proxy @?= md5FromInteger md5Int
 
+-- NB: if you need to update these values locally, you can run:
+--
+-- > cabal run Cabal-tests:unit-tests -- -p "/Structured/"
+
 md5CheckGenericPackageDescription :: Proxy GenericPackageDescription -> Assertion
 md5CheckGenericPackageDescription proxy = md5Check proxy
-    0x9f021aa01a9db87b4270029dc14c5966
+    0xfbca1c1f2a700fb3a174ec5346e86cbb
 
 md5CheckLocalBuildInfo :: Proxy LocalBuildInfo -> Assertion
 md5CheckLocalBuildInfo proxy = md5Check proxy
-    0x78979713e08179ab070d6ab10cd5ef6c
+    0xd9542841ab7584d348aa142053fe934f

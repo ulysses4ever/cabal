@@ -1,5 +1,4 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- |
 -- Module      :  Distribution.PackageDescription.Check
@@ -245,7 +244,7 @@ checkGenericPackageDescription
       -- Targets should be present...
       let condAllLibraries =
             maybeToList condLibrary_
-              ++ (map snd condSubLibraries_)
+              ++ map snd condSubLibraries_
       checkP
         ( and
             [ null condExecutables_
@@ -750,7 +749,7 @@ checkSourceRepos rs = do
         checkP
           (any isAbsoluteOnAnyPlatform repoSubdir_)
           (PackageDistInexcusable SubdirRelPath)
-        case join . fmap isGoodRelativeDirectoryPath $ repoSubdir_ of
+        case isGoodRelativeDirectoryPath =<< repoSubdir_ of
           Just err ->
             tellP
               (PackageDistInexcusable $ SubdirGoodRelPath err)

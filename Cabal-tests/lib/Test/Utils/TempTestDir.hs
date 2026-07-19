@@ -1,5 +1,3 @@
-{-# LANGUAGE CPP #-}
-
 module Test.Utils.TempTestDir
   ( withTestDir
   , withTestDir'
@@ -60,7 +58,7 @@ removeDirectoryRecursiveHack :: Verbosity -> FilePath -> IO ()
 removeDirectoryRecursiveHack verbosity dir | isWindows = go 1
   where
     isWindows = System.Info.os == "mingw32"
-    limit = 3
+    limit = 5
 
     go :: Int -> IO ()
     go n = do

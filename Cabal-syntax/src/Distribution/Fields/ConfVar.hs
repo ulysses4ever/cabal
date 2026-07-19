@@ -3,6 +3,7 @@
 
 module Distribution.Fields.ConfVar (parseConditionConfVar, parseConditionConfVarFromClause) where
 
+import Data.Functor ((<&>))
 import Distribution.Compat.CharParsing (char, integral)
 import Distribution.Compat.Prelude
 import Distribution.Fields.Field (Field (..), SectionArg (..), sectionArgAnn)
@@ -73,8 +74,8 @@ sepByNonEmpty p sep = (:|) <$> p <*> many (sep *> p)
 parser :: Parser (Condition ConfVar)
 parser = condOr
   where
-    condOr = sepByNonEmpty condAnd (oper "||") >>= return . foldl1 COr
-    condAnd = sepByNonEmpty cond (oper "&&") >>= return . foldl1 CAnd
+    condOr = sepByNonEmpty condAnd (oper "||") <&> foldl1 COr
+    condAnd = sepByNonEmpty cond (oper "&&") <&> foldl1 CAnd
     cond =
       P.choice
         [boolLiteral, parens condOr, notCond, osCond, archCond, flagCond, implCond]
@@ -153,7 +154,7 @@ parser = condOr
     updatePosition :: P.SourcePos -> SectionArg Position -> [SectionArg Position] -> P.SourcePos
     updatePosition x s _ =
       let Position line col = sectionArgAnn s
-       in P.setSourceLine (P.setSourceColumn x col) (line)
+       in P.setSourceLine (P.setSourceColumn x col) line
     prettySectionArg = show
 
     fromParsec :: Parsec a => Parser a

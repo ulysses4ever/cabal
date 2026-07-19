@@ -7,3 +7,4 @@ Error:
         It occurs in neither the 'exposed-modules' of this package,
         nor any of its 'build-depends' dependencies.
     In the stanza library
+    CallStack (from HasCallStack): <SNIPPED>

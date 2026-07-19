@@ -1,8 +1,4 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TypeFamilies #-}
 
 -- | Types used while planning how to build everything in a project.
@@ -122,7 +118,6 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.Foldable (fold)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as Map
-import qualified Data.Monoid as Mon
 import Distribution.Verbosity
 import System.FilePath ((</>))
 import Text.PrettyPrint (hsep, parens, text)
@@ -163,13 +158,12 @@ showElaboratedInstallPlan = InstallPlan.showInstallPlan_gen showNode
         }
       where
         herald =
-          ( hsep
-              [ text (InstallPlan.showPlanPackageTag pkg)
-              , InstallPlan.foldPlanPackage (const mempty) in_mem pkg
-              , pretty (packageId pkg)
-              , parens (pretty (nodeKey pkg))
-              ]
-          )
+          hsep
+            [ text (InstallPlan.showPlanPackageTag pkg)
+            , InstallPlan.foldPlanPackage (const mempty) in_mem pkg
+            , pretty (packageId pkg)
+            , parens (pretty (nodeKey pkg))
+            ]
 
         in_mem elab = case elabBuildStyle elab of
           BuildInplaceOnly InMemory -> parens (text "In Memory")
@@ -188,9 +182,10 @@ data ElaboratedSharedConfig = ElaboratedSharedConfig
   { pkgConfigPlatform :: Platform
   , pkgConfigCompiler :: Compiler -- TODO: [code cleanup] replace with CompilerInfo
   , pkgConfigCompilerProgs :: ProgramDb
-  -- ^ The programs that the compiler configured (e.g. for GHC, the progs
-  -- ghc & ghc-pkg). Once constructed, only the 'configuredPrograms' are
-  -- used.
+  -- ^ All known programs configured once for the project: the compiler
+  -- (e.g. ghc & ghc-pkg) plus associated tools (hsc2hs, haddock, hpc,
+  -- runghc) and toolchain programs (ar, ld, strip). Once constructed,
+  -- only the 'configuredPrograms' are used.
   , pkgConfigReplOptions :: ReplOptions
   }
   deriving (Show, Generic)
@@ -766,7 +761,6 @@ data NotPerComponentBuildType
   = CuzConfigureBuildType
   | CuzCustomBuildType
   | CuzHooksBuildType
-  | CuzMakeBuildType
   deriving (Eq, Show, Generic)
 
 instance Binary NotPerComponentBuildType
@@ -784,7 +778,6 @@ whyNotPerComponent = \case
       CuzConfigureBuildType -> "Configure"
       CuzCustomBuildType -> "Custom"
       CuzHooksBuildType -> "Hooks"
-      CuzMakeBuildType -> "Make"
   CuzCabalSpecVersion -> "cabal-version is less than 1.8"
   CuzNoBuildableComponents -> "there are no buildable components"
   CuzDisablePerComponent -> "you passed --disable-per-component"
@@ -794,7 +787,7 @@ whyNotPerComponent = \case
 pkgOrderDependencies :: ElaboratedPackage -> ComponentDeps [UnitId]
 pkgOrderDependencies pkg =
   fmap (map (newSimpleUnitId . confInstId)) (map fst <$> pkgLibDependencies pkg)
-    `Mon.mappend` fmap (map (newSimpleUnitId . confInstId)) (pkgExeDependencies pkg)
+    <> fmap (map (newSimpleUnitId . confInstId)) (pkgExeDependencies pkg)
 
 -- | This is used in the install plan to indicate how the package will be
 -- built.

@@ -11,7 +11,7 @@ license:       BSD-3-Clause
 license-file:  LICENSE
 author:        Cabal Development Team (see AUTHORS file)
 maintainer:    Cabal Development Team <cabal-devel@haskell.org>
-copyright:     2003-2025, Cabal Development Team
+copyright:     2003-2026, Cabal Development Team
 category:      Distribution
 build-type:    Simple
 extra-doc-files:
@@ -33,7 +33,7 @@ flag debug-tracetree
   manual:      True
 
 library
-  default-language: Haskell2010
+  default-language: GHC2021
   hs-source-dirs:   src
   hs-source-dirs:   src-assertion
   ghc-options:
@@ -100,7 +100,7 @@ library
 
   build-depends:
     , array         >=0.4      && <0.6
-    , base          >=4.13     && <4.23
+    , base          >=4.17     && <4.23
     , bytestring    >=0.10.6.0 && <0.13
     , Cabal         ^>=3.17
     , Cabal-syntax  ^>=3.17
@@ -123,7 +123,7 @@ library
       , tracetree ^>=0.1
 
 Test-Suite unit-tests
-   default-language: Haskell2010
+   default-language: GHC2021
    ghc-options: -rtsopts -threaded
 
    type: exitcode-stdio-1.0
@@ -133,7 +133,7 @@ Test-Suite unit-tests
      UnitTests.Distribution.Solver.Modular.MessageUtils
 
    build-depends:
-     , base        >= 4.13  && <4.23
+     , base        >= 4.17  && <4.23
      , Cabal-syntax
      , cabal-install-solver
      , tasty       >= 1.2.3 && <1.6

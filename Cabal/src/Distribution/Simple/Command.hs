@@ -1,10 +1,4 @@
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-
------------------------------------------------------------------------------
 
 -- |
 -- Module      :  Distribution.Simple.Command
@@ -240,7 +234,7 @@ reqArg ad mkflag showflag sf lf d get set =
     d
     (sf, lf)
     ad
-    (fmap (\a b -> set (get b `mappend` a) b) mkflag)
+    (fmap (\a b -> set (get b <> a) b) mkflag)
     (showflag . get)
 
 -- | Create a string-valued command line interface with a default value.
@@ -256,8 +250,8 @@ optArg ad mkflag (dv, mkDef) showflag sf lf d get set =
     d
     (sf, lf)
     ad
-    (fmap (\a b -> set (get b `mappend` a) b) mkflag)
-    (dv, \b -> set (get b `mappend` mkDef) b)
+    (fmap (\a b -> set (get b <> a) b) mkflag)
+    (dv, \b -> set (get b <> mkDef) b)
     (showflag . get)
 
 -- | (String -> a) variant of "reqArg"
@@ -395,7 +389,7 @@ liftOptionL l = liftOption (^# l) (l #~)
 liftOptDescr :: (b -> a) -> (a -> (b -> b)) -> OptDescr a -> OptDescr b
 liftOptDescr get' set' (ChoiceOpt opts) =
   ChoiceOpt
-    [ (d, ff, liftSet get' set' set, (get . get'))
+    [ (d, ff, liftSet get' set' set, get . get')
     | (d, ff, set, get) <- opts
     ]
 liftOptDescr get' set' (OptArg d ff ad set (dv, mkDef) get) =
@@ -594,7 +588,7 @@ commandParseArgs command global args =
     unrecognised opts =
       [ "unrecognized "
         ++ "'"
-        ++ (commandName command)
+        ++ commandName command
         ++ "'"
         ++ " option `"
         ++ opt
@@ -720,7 +714,7 @@ commandsRunWithFallback globalCommand commands defaultCommand args =
         CommandList list -> pure $ CommandList (list ++ commandNames)
         CommandErrors _ -> pure $ CommandHelp globalHelp
         CommandReadyToGo (_, []) -> pure $ CommandHelp globalHelp
-        CommandReadyToGo (_, (name : cmdArgs')) ->
+        CommandReadyToGo (_, name : cmdArgs') ->
           case lookupCommand name of
             [Command _ _ action _] ->
               case action ("--help" : cmdArgs') of

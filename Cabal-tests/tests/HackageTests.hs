@@ -1,7 +1,4 @@
-{-# LANGUAGE BangPatterns        #-}
 {-# LANGUAGE CPP                 #-}
-{-# LANGUAGE Rank2Types          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-unused-pattern-binds #-} -- pattern match to assert field count
 
 module Main where
@@ -196,10 +193,9 @@ instance Semigroup ParsecResult where
 
 instance Monoid ParsecResult where
     mempty  = ParsecResult 0 0 0
-    mappend = (<>)
 
 instance NFData ParsecResult where
-    rnf (ParsecResult _ _ _) = ()
+    rnf ParsecResult{} = ()
 
 -------------------------------------------------------------------------------
 -- Check test
@@ -243,7 +239,6 @@ instance Semigroup CheckResult where
 
 instance Monoid CheckResult where
     mempty = CheckResult 0 0 0 0 0 0 0 0
-    mappend = (<>)
 
 toCheckResult :: PackageCheck -> CheckResult
 toCheckResult PackageBuildImpossible {}    = CheckResult 0 0 1 1 0 0 0 0
@@ -420,7 +415,7 @@ main = join (O.execParser opts)
     indexPredicate :: Maybe Tar.EpochTime -> (k -> Bool) -> (Tar.EpochTime -> k -> Bool)
     indexPredicate Nothing k = const k
     indexPredicate (Just indexDate) k =
-        \e -> if (e <= indexDate) then k else const False
+        \e -> if e <= indexDate then k else const False
 
     mkPredicate :: [String] -> Maybe Tar.EpochTime -> (Tar.EpochTime -> FilePath -> Bool)
     mkPredicate [] idx = indexPredicate idx (const True)
@@ -472,4 +467,4 @@ fieldLinesToString fieldLines =
 foldIO :: forall a m. (Monoid m) => (a -> IO m) -> [a] -> IO m
 foldIO f = go mempty where
     go !acc [] = acc
-    go !acc (x:xs) = go (mappend acc (f x)) xs
+    go !acc (x:xs) = go (acc <> f x) xs

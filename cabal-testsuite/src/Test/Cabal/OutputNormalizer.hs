@@ -95,6 +95,11 @@ normalizeOutput nenv =
     -- hackage-security locks occur non-deterministically
     . resub "(Released|Acquired|Waiting) .*hackage-security-lock\n" ""
     . resub "installed: [0-9]+(\\.[0-9]+)*" "installed: <VERSION>"
+    . resub "\\.hs:[0-9]+:[0-9]+" ".hs:_:_"
+    -- Remove all lines after "CallStack (from HasCallStack):"
+    . resub
+      "CallStack \\(from HasCallStack\\):[A-Za-z0-9 \\.,:;'\n/_-]*"
+      "CallStack (from HasCallStack): <SNIPPED>\n"
   where
     sameDir = "(\\.((\\\\)+|\\/))*"
     packageIdRegex pid =
@@ -127,8 +132,12 @@ normalizeOutput nenv =
         "\"path\":\"<GHCPATH>\""
         -- Normalize the C compiler path embedded in -pgmc.
         . resub
-          ("\"-pgmc\",\"[^\"]+\"")
+          "\"-pgmc\",\"[^\"]+\""
           "\"-pgmc\",\"<CCPATH>\""
+        -- Normalize the C++ compiler path embedded in -pgmcxx.
+        . resub
+          "\"-pgmcxx\",\"[^\"]+\""
+          "\"-pgmcxx\",\"<CXXCPATH>\""
         -- Remove cabal version output from show-build-info output
         . resub
           ("{\"cabal-lib-version\":\"" ++ posixRegexEscape (display (normalizerCabalVersion nenv)) ++ "\"")
@@ -145,7 +154,7 @@ normalizeOutput nenv =
         -- This makes it impossible to have a stable package id, thus remove it completely.
         -- Check manually in your test-cases if the package-id needs to be verified.
         . resub
-          ("\"-package-id\",\"([^\"]*)\"")
+          "\"-package-id\",\"([^\"]*)\""
           "\"-package-id\",\"<PACKAGEDEP>\""
 
 data NormalizerEnv = NormalizerEnv

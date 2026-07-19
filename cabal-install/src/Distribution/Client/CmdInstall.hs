@@ -1,9 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections #-}
 
 -- | cabal-install CLI command: build
 module Distribution.Client.CmdInstall
@@ -745,7 +742,7 @@ getClientInstallFlags :: Verbosity -> GlobalFlags -> ClientInstallFlags -> IO Cl
 getClientInstallFlags verbosity globalFlags existingClientInstallFlags = do
   let configFileFlag = globalConfigFile globalFlags
   savedConfig <- loadConfig verbosity configFileFlag
-  pure $ savedClientInstallFlags savedConfig `mappend` existingClientInstallFlags
+  pure $ savedClientInstallFlags savedConfig <> existingClientInstallFlags
 
 getSpecsAndTargetSelectors
   :: Verbosity
@@ -1246,7 +1243,7 @@ installBuiltExe
 
 -- | Create 'GhcEnvironmentFileEntry's for packages with exposed libraries.
 entriesForLibraryComponents :: TargetsMap -> [GhcEnvironmentFileEntry FilePath]
-entriesForLibraryComponents = Map.foldrWithKey' (\k v -> mappend (go k v)) []
+entriesForLibraryComponents = Map.foldrWithKey' (\k v -> (go k v <>)) []
   where
     hasLib :: (ComponentTarget, NonEmpty TargetSelector) -> Bool
     hasLib (ComponentTarget (CLibName _) _, _) = True

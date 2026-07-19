@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
-
 module Distribution.Types.SourceRepo
   ( SourceRepo (..)
   , RepoKind (..)
@@ -93,7 +90,7 @@ emptySourceRepo kind =
 
 instance Binary SourceRepo
 instance Structured SourceRepo
-instance NFData SourceRepo where rnf = genericRnf
+instance NFData SourceRepo
 
 -- | What this repo info is for, what it represents.
 data RepoKind
@@ -110,7 +107,7 @@ data RepoKind
 
 instance Binary RepoKind
 instance Structured RepoKind
-instance NFData RepoKind where rnf = genericRnf
+instance NFData RepoKind
 
 -- | An enumeration of common source control systems. The fields used in the
 -- 'SourceRepo' depend on the type of repo. The tools and methods used to
@@ -130,7 +127,7 @@ data KnownRepoType
 
 instance Binary KnownRepoType
 instance Structured KnownRepoType
-instance NFData KnownRepoType where rnf = genericRnf
+instance NFData KnownRepoType
 
 instance Parsec KnownRepoType where
   parsec = do
@@ -150,7 +147,7 @@ data RepoType
 
 instance Binary RepoType
 instance Structured RepoType
-instance NFData RepoType where rnf = genericRnf
+instance NFData RepoType
 
 knownRepoTypes :: [KnownRepoType]
 knownRepoTypes = [minBound .. maxBound]

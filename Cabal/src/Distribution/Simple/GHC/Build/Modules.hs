@@ -1,7 +1,5 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE RankNTypes #-}
 
 module Distribution.Simple.GHC.Build.Modules
   ( buildHaskellModules
@@ -173,8 +171,8 @@ buildHaskellModules numJobs ghcProg mbMainFile inputModules buildTargetDir neede
     -- We define the base opts which are shared across different build ways in
     -- 'buildHaskellModules'
     baseOpts way =
-      (Internal.componentGhcOptions (verbosityLevel verbosity) lbi bi clbi buildTargetDir)
-        `mappend` mempty
+      Internal.componentGhcOptions (verbosityLevel verbosity) lbi bi clbi buildTargetDir
+        <> mempty
           { ghcOptMode = toFlag GhcModeMake
           , -- Previously we didn't pass -no-link when building libs,
             -- but I think that could result in a bug (e.g. if a lib module is

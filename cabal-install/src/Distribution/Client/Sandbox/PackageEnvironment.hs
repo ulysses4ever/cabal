@@ -1,9 +1,4 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE TupleSections #-}
-
------------------------------------------------------------------------------
-
------------------------------------------------------------------------------
+{-# LANGUAGE DerivingVia #-}
 
 -- |
 -- Module      :  Distribution.Client.Sandbox.PackageEnvironment
@@ -81,13 +76,7 @@ data PackageEnvironment = PackageEnvironment
   { pkgEnvSavedConfig :: SavedConfig
   }
   deriving (Generic)
-
-instance Monoid PackageEnvironment where
-  mempty = gmempty
-  mappend = (<>)
-
-instance Semigroup PackageEnvironment where
-  (<>) = gmappend
+  deriving (Semigroup, Monoid) via Generically PackageEnvironment
 
 -- | Optional package environment file that can be used to customize the default
 -- settings. Created by the user.
@@ -345,7 +334,7 @@ showPackageEnvironment pkgEnv = showPackageEnvironmentWithComments Nothing pkgEn
 -- | Pretty-print the package environment with default values for empty fields
 -- commented out (just like the default Cabal config file).
 showPackageEnvironmentWithComments
-  :: (Maybe PackageEnvironment)
+  :: Maybe PackageEnvironment
   -> PackageEnvironment
   -> String
 showPackageEnvironmentWithComments mdefPkgEnv pkgEnv =

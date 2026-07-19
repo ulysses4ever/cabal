@@ -1,6 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-
 -- | This module provides @newtype@ wrappers to be used with "Distribution.FieldGrammar".
 -- Whenever we can not provide a Parsec instance for a type, we need to wrap it in a newtype and define the instance.
 module Distribution.Client.Utils.Newtypes
@@ -56,7 +53,7 @@ parsecNumJobs = ncpus <|> numJobs
 
 newtype URI_NT = URI_NT {getURI_NT :: URI}
 
-instance Newtype (URI) URI_NT
+instance Newtype URI URI_NT
 
 instance Parsec URI_NT where
   parsec = parsecURI_NT

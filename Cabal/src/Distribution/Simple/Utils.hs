@@ -1,15 +1,10 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 #if MIN_VERSION_base(4,21,0)
 {-# LANGUAGE ImplicitParams #-}
 #endif
-{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 #ifdef GIT_REV
 {-# LANGUAGE TemplateHaskell #-}
 #endif
@@ -249,6 +244,7 @@ import Data.Typeable
 
 import Control.Concurrent (threadDelay)
 import qualified Control.Exception as Exception
+import Data.Kind
 import Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import qualified Data.Version as DV
 import Distribution.Compat.Process (proc)
@@ -539,7 +535,7 @@ ioeErrorString :: Lens' IOError String
 ioeErrorString f ioe = ioeSetErrorString ioe <$> f (ioeGetErrorString ioe)
 
 -- | Check that the type of the exception matches the given user error type.
-isUserException :: forall user_err. Typeable user_err => Proxy user_err -> Exception.SomeException -> Bool
+isUserException :: forall (user_err :: Type). Typeable user_err => Proxy user_err -> Exception.SomeException -> Bool
 isUserException Proxy (SomeException se) =
   case cast se :: Maybe user_err of
     Just{} -> True
@@ -1050,7 +1046,7 @@ compatWithCreateProcess verbosity cp action =
     -- of 'withCreateProcess_', but with special logic to avoid closing the
     -- verbosity handles.
     create =
-      (Process.createProcess_ "createProcess" cp)
+      Process.createProcess_ "createProcess" cp
         `Exception.finally` do
           maybeClose (Process.std_in cp)
           maybeClose (Process.std_out cp)
@@ -1737,7 +1733,7 @@ installExecutableFile verbosity src dest = withFrozenCallStack $ do
 installMaybeExecutableFile :: Verbosity -> FilePath -> FilePath -> IO ()
 installMaybeExecutableFile verbosity src dest = withFrozenCallStack $ do
   perms <- getPermissions src
-  if (executable perms) -- only checks user x bit
+  if executable perms -- only checks user x bit
     then installExecutableFile verbosity src dest
     else installOrdinaryFile verbosity src dest
 

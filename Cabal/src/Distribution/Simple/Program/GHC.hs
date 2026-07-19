@@ -1,11 +1,8 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Distribution.Simple.Program.GHC
   ( GhcOptions (..)
@@ -151,6 +148,9 @@ normaliseGhcArgs (Just ghcVersion) PackageDescription{..} ghcArgs
         makeFilter :: String -> String -> Maybe (First ([String] -> [String]))
         makeFilter flag arg = First . filterRest <$> stripPrefix flag arg
           where
+            -- Drop the next argument, whether it comes after a `=` or
+            -- is stand-alone.
+            filterRest :: String -> [String] -> [String]
             filterRest leftOver = case dropEq leftOver of
               [] -> drop 1
               _ -> id
@@ -164,15 +164,24 @@ normaliseGhcArgs (Just ghcVersion) PackageDescription{..} ghcArgs
           Just f -> go (f args)
           Nothing -> arg : go args
 
+    -- Options that take parameters and do not modify the generated artifacts
+    -- are filtered out.
     argumentFilters :: [String] -> [String]
     argumentFilters =
       flagArgumentFilter
-        ["-ghci-script", "-H", "-interactive-print"]
+        [ "-ghci-script"
+        , "-H"
+        , "-interactive-print"
+        , "-fghci-browser-assets-dir"
+        ]
 
     -- \| Remove RTS arguments from a list.
     filterRtsArgs :: [String] -> [String]
     filterRtsArgs = snd . splitRTSArgs
 
+    -- Simple options (i.e. that do not take parameters, or just
+    -- take int parameters) which do *not* change generated artifacts
+    -- are filtered out.
     simpleFilters :: String -> Bool
     simpleFilters =
       not
@@ -183,7 +192,8 @@ normaliseGhcArgs (Just ghcVersion) PackageDescription{..} ghcArgs
           , Any . isPrefixOf "-dsuppress-"
           , Any . isPrefixOf "-dno-suppress-"
           , flagIn $ invertibleFlagSet "-" ["ignore-dot-ghci"]
-          , flagIn . invertibleFlagSet "-f" . mconcat $
+          , -- -f-something -f-no-something options.
+            flagIn . invertibleFlagSet "-f" . mconcat $
               [
                 [ "reverse-errors"
                 , "warn-unused-binds"
@@ -519,7 +529,9 @@ data GhcOptions = GhcOptions
   , ghcOptFfiIncludes :: NubListR FilePath
   -- ^ Extra header files to include for old-style FFI; the @ghc -#include@ flag.
   , ghcOptCcProgram :: Flag FilePath
-  -- ^ Program to use for the C and C++ compiler; the @ghc -pgmc@ flag.
+  -- ^ Program to use for the C compiler; the @ghc -pgmc@ flag.
+  , ghcOptGppProgram :: Flag FilePath
+  -- ^ Program to use for the C++ compiler; the @ghc -pgmcxx@ flag.
   , ----------------------------
     -- Language and extensions
 
@@ -593,6 +605,7 @@ data GhcOptions = GhcOptions
   -- Modifies some of the GHC error messages.
   }
   deriving (Show, Generic)
+  deriving (Semigroup, Monoid) via Generically GhcOptions
 
 data GhcMode
   = -- | @ghc -c@
@@ -875,6 +888,7 @@ renderGhcOptions comp _platform@(Platform _arch os) opts
            in [cxxflag ++ opt | opt <- ghcOptCxxOptions opts]
         , ["-opta" ++ opt | opt <- ghcOptAsmOptions opts]
         , concat [["-pgmc", cc] | cc <- flag ghcOptCcProgram]
+        , concat [["-pgmcxx", cxx] | cxx <- flag ghcOptGppProgram]
         , -----------------
           -- Linker stuff
 
@@ -1033,13 +1047,3 @@ splitRTSArgs args =
               then addRTSArg arg $ go isRTSArg rest
               else addNonRTSArg arg $ go isRTSArg rest
    in go False args
-
--- -----------------------------------------------------------------------------
--- Boilerplate Monoid instance for GhcOptions
-
-instance Monoid GhcOptions where
-  mempty = gmempty
-  mappend = (<>)
-
-instance Semigroup GhcOptions where
-  (<>) = gmappend

@@ -1,9 +1,4 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeFamilies #-}
-
------------------------------------------------------------------------------
-
------------------------------------------------------------------------------
 
 -- |
 -- Module      :  Distribution.Client.SolverInstallPlan
@@ -154,7 +149,7 @@ remove
   -> SolverInstallPlan
   -> Either
       [SolverPlanProblem]
-      (SolverInstallPlan)
+      SolverInstallPlan
 remove shouldRemove plan =
   new (planIndepGoals plan) newIndex
   where

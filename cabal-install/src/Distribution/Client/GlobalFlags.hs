@@ -1,10 +1,6 @@
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Distribution.Client.GlobalFlags
   ( GlobalFlags (..)
@@ -99,6 +95,7 @@ data GlobalFlags = GlobalFlags
   -- ^ Extra program path used for packagedb lookups in a global context (i.e. for http transports)
   }
   deriving (Show, Generic)
+  deriving (Semigroup, Monoid) via Generically GlobalFlags
 
 defaultGlobalFlags :: GlobalFlags
 defaultGlobalFlags =
@@ -118,13 +115,6 @@ defaultGlobalFlags =
     , globalStoreDir = mempty
     , globalProgPathExtra = mempty
     }
-
-instance Monoid GlobalFlags where
-  mempty = gmempty
-  mappend = (<>)
-
-instance Semigroup GlobalFlags where
-  (<>) = gmappend
 
 -- ------------------------------------------------------------
 

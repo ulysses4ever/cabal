@@ -1,6 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RankNTypes #-}
-
 module Distribution.Simple.Test.ExeV10
   ( runTest
   ) where
@@ -92,7 +89,7 @@ runTest verbHandles pkg_descr lbi clbi hpcMarkupInfo flags suite = do
         map
           (testOption pkg_descr lbi suite)
           (testOptions flags)
-      tixFile = packageRoot (testCommonFlags flags) </> getSymbolicPath (tixFilePath distPref way (testName'))
+      tixFile = packageRoot (testCommonFlags flags) </> getSymbolicPath (tixFilePath distPref way testName')
 
   shellEnv <-
     getFullEnvironment

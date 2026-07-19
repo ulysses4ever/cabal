@@ -1,9 +1,5 @@
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE TypeApplications #-}
 
 -- |
 -- Module      :  Distribution.Client.Init.Types
@@ -134,13 +130,7 @@ data InitFlags = InitFlags
   , overwrite :: Flag Bool
   }
   deriving (Eq, Show, Generic)
-
-instance Monoid InitFlags where
-  mempty = gmempty
-  mappend = (<>)
-
-instance Semigroup InitFlags where
-  (<>) = gmappend
+  deriving (Semigroup, Monoid) via Generically InitFlags
 
 -- -------------------------------------------------------------------- --
 -- Targets
@@ -300,7 +290,7 @@ sessionState = PromptIO ask
 
 runPromptIO :: PromptIO a -> IO a
 runPromptIO (PromptIO pio) =
-  (Data.IORef.newIORef newSessionState) >>= (runReaderT pio)
+  Data.IORef.newIORef newSessionState >>= runReaderT pio
 
 type Inputs = NonEmpty String
 
@@ -331,7 +321,6 @@ instance Applicative PurePrompt where
       Right (a, s'') -> Right (f a, s'')
 
 instance Monad PurePrompt where
-  return = pure
   PurePrompt a >>= k = PurePrompt $ \s -> case a s of
     Left e -> Left e
     Right (a', s') -> runPromptState (k a') s'
@@ -371,10 +360,10 @@ class Monad m => Interactive m where
 
   -- session state functions
   getLastChosenLanguage :: m (Maybe String)
-  setLastChosenLanguage :: (Maybe String) -> m ()
+  setLastChosenLanguage :: Maybe String -> m ()
 
 newtype SessionState = SessionState
-  { lastChosenLanguage :: (Maybe String)
+  { lastChosenLanguage :: Maybe String
   }
 
 newSessionState :: SessionState

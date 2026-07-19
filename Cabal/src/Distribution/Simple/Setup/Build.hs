@@ -1,8 +1,6 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ViewPatterns #-}
 
 -- |
@@ -59,6 +57,7 @@ data BuildFlags = BuildFlags
   , buildUseSemaphore :: Flag String
   }
   deriving (Read, Show, Generic)
+  deriving (Semigroup, Monoid) via Generically BuildFlags
 
 pattern BuildCommonFlags
   :: Flag VerbosityFlags
@@ -146,18 +145,17 @@ buildOptions progDb showOrParseArgs =
     buildCommonFlags
     (\c f -> f{buildCommonFlags = c})
     showOrParseArgs
-    ( [ optionNumJobs
-          buildNumJobs
-          (\v flags -> flags{buildNumJobs = v})
-      , option
-          []
-          ["semaphore"]
-          "Use the specified semaphore so GHC can compile components in parallel"
-          buildUseSemaphore
-          (\v flags -> flags{buildUseSemaphore = v})
-          (reqArg' "SEMAPHORE" Flag flagToList)
-      ]
-    )
+    [ optionNumJobs
+        buildNumJobs
+        (\v flags -> flags{buildNumJobs = v})
+    , option
+        []
+        ["semaphore"]
+        "Use the specified semaphore identifier so GHC can compile components in parallel"
+        buildUseSemaphore
+        (\v flags -> flags{buildUseSemaphore = v})
+        (reqArg' "SEMAPHORE" Flag flagToList)
+    ]
     ++ programDbPaths
       progDb
       showOrParseArgs
@@ -176,10 +174,3 @@ buildOptions progDb showOrParseArgs =
 
 emptyBuildFlags :: BuildFlags
 emptyBuildFlags = mempty
-
-instance Monoid BuildFlags where
-  mempty = gmempty
-  mappend = (<>)
-
-instance Semigroup BuildFlags where
-  (<>) = gmappend

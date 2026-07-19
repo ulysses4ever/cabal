@@ -1,8 +1,6 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ViewPatterns #-}
 
 -- |
@@ -59,6 +57,7 @@ data RegisterFlags = RegisterFlags
   , regPrintId :: Flag Bool
   }
   deriving (Show, Generic)
+  deriving (Semigroup, Monoid) via Generically RegisterFlags
 
 pattern RegisterCommonFlags
   :: Flag VerbosityFlags
@@ -208,10 +207,3 @@ unregisterCommand =
 
 emptyRegisterFlags :: RegisterFlags
 emptyRegisterFlags = mempty
-
-instance Monoid RegisterFlags where
-  mempty = gmempty
-  mappend = (<>)
-
-instance Semigroup RegisterFlags where
-  (<>) = gmappend

@@ -1,7 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-
------------------------------------------------------------------------------
-
 -- |
 -- Module      :  Distribution.Simple.Glob.Internal
 -- Copyright   :  Isaac Jones, Simon Marlow 2003-2004
@@ -79,7 +75,7 @@ instance Parsec Glob where
     where
       dirSep :: CabalParsing m => m ()
       dirSep =
-        () <$ P.char '/'
+        void (P.char '/')
           <|> P.try
             ( do
                 _ <- P.char '\\'

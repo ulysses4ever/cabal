@@ -1,7 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
-
 -- |
 -- Module      :  Distribution.System
 -- Copyright   :  Duncan Coutts 2007-2008
@@ -111,7 +107,7 @@ data OS
 
 instance Binary OS
 instance Structured OS
-instance NFData OS where rnf = genericRnf
+instance NFData OS
 
 knownOSs :: [OS]
 knownOSs =
@@ -214,7 +210,7 @@ data Arch
 
 instance Binary Arch
 instance Structured Arch
-instance NFData Arch where rnf = genericRnf
+instance NFData Arch
 
 knownArches :: [Arch]
 knownArches =
@@ -285,7 +281,7 @@ data Platform = Platform Arch OS
 
 instance Binary Platform
 instance Structured Platform
-instance NFData Platform where rnf = genericRnf
+instance NFData Platform
 
 instance Pretty Platform where
   pretty (Platform arch os) = pretty arch <<>> Disp.char '-' <<>> pretty os

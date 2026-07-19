@@ -1,8 +1,6 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ViewPatterns #-}
 
 -- |
@@ -51,6 +49,7 @@ data CleanFlags = CleanFlags
   , cleanSaveConf :: Flag Bool
   }
   deriving (Show, Generic)
+  deriving (Semigroup, Monoid) via Generically CleanFlags
 
 pattern CleanCommonFlags
   :: Flag VerbosityFlags
@@ -114,10 +113,3 @@ cleanCommand =
 
 emptyCleanFlags :: CleanFlags
 emptyCleanFlags = mempty
-
-instance Monoid CleanFlags where
-  mempty = gmempty
-  mappend = (<>)
-
-instance Semigroup CleanFlags where
-  (<>) = gmappend

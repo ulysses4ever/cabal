@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
-
 module Distribution.Types.PkgconfigDependency
   ( PkgconfigDependency (..)
   ) where
@@ -27,7 +24,7 @@ data PkgconfigDependency
 
 instance Binary PkgconfigDependency
 instance Structured PkgconfigDependency
-instance NFData PkgconfigDependency where rnf = genericRnf
+instance NFData PkgconfigDependency
 
 instance Pretty PkgconfigDependency where
   pretty (PkgconfigDependency name PcAnyVersion) = pretty name

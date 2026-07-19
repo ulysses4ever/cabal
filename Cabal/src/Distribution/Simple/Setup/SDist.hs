@@ -1,8 +1,6 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ViewPatterns #-}
 
 -- |
@@ -54,6 +52,7 @@ data SDistFlags = SDistFlags
   , sDistListSources :: Flag FilePath
   }
   deriving (Show, Generic)
+  deriving (Semigroup, Monoid) via Generically SDistFlags
 
 pattern SDistCommonFlags
   :: Flag VerbosityFlags
@@ -132,10 +131,3 @@ sdistCommand =
 
 emptySDistFlags :: SDistFlags
 emptySDistFlags = mempty
-
-instance Monoid SDistFlags where
-  mempty = gmempty
-  mappend = (<>)
-
-instance Semigroup SDistFlags where
-  (<>) = gmappend

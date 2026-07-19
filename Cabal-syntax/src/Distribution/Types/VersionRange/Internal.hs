@@ -1,11 +1,6 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns #-}
 
 -- | The only purpose of this module is to prevent the export of
@@ -37,6 +32,7 @@ module Distribution.Types.VersionRange.Internal
   , wildcardUpperBound
   ) where
 
+import Data.Functor (($>))
 import Distribution.Compat.Prelude
 import Distribution.Types.Version
 import Prelude ()
@@ -63,7 +59,7 @@ data VersionRange
 
 instance Binary VersionRange
 instance Structured VersionRange
-instance NFData VersionRange where rnf = genericRnf
+instance NFData VersionRange
 
 -- | The version range @-any@. That is, a version range containing all
 -- versions.
@@ -364,25 +360,23 @@ versionRangeParser digitParser csv = expr
       P.spaces
       t <- term
       P.spaces
-      ( do
-          _ <- P.string "||"
-          checkOp
-          P.spaces
-          e <- expr
-          return (unionVersionRanges t e)
-          <|> return t
-        )
+      do
+        _ <- P.string "||"
+        checkOp
+        P.spaces
+        e <- expr
+        return (unionVersionRanges t e)
+        <|> return t
     term = do
       f <- factor
       P.spaces
-      ( do
-          _ <- P.string "&&"
-          checkOp
-          P.spaces
-          t <- term
-          return (intersectVersionRanges f t)
-          <|> return f
-        )
+      do
+        _ <- P.string "&&"
+        checkOp
+        P.spaces
+        t <- term
+        return (intersectVersionRanges f t)
+        <|> return f
     factor = parens expr <|> prim
 
     prim = do
@@ -391,21 +385,19 @@ versionRangeParser digitParser csv = expr
         "-" -> anyVersion <$ P.string "any" <|> P.string "none" *> noVersion'
         "==" -> do
           P.spaces
-          ( do
-              (wild, v) <- verOrWild
-              checkWild wild
-              pure $ (if wild then withinVersion else thisVersion) v
-              <|> (verSet' thisVersion =<< verSet)
-            )
+          do
+            (wild, v) <- verOrWild
+            checkWild wild
+            pure $ (if wild then withinVersion else thisVersion) v
+            <|> (verSet' thisVersion =<< verSet)
         "^>=" -> do
           P.spaces
-          ( do
-              (wild, v) <- verOrWild
-              when wild $
-                P.unexpected "wild-card version after ^>= operator"
-              majorBoundVersion' v
-              <|> (verSet' majorBoundVersion =<< verSet)
-            )
+          do
+            (wild, v) <- verOrWild
+            when wild $
+              P.unexpected "wild-card version after ^>= operator"
+            majorBoundVersion' v
+            <|> (verSet' majorBoundVersion =<< verSet)
         _ -> do
           P.spaces
           (wild, v) <- verOrWild
@@ -526,7 +518,7 @@ versionRangeParser digitParser csv = expr
     verLoop :: DList.DList Int -> m (Bool, Version)
     verLoop acc =
       verLoop' acc
-        <|> (tags *> pure (False, mkVersion (DList.toList acc)))
+        <|> (tags $> (False, mkVersion (DList.toList acc)))
 
     verLoop' :: DList.DList Int -> m (Bool, Version)
     verLoop' acc = do

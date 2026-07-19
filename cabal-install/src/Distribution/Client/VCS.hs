@@ -1,8 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Distribution.Client.VCS
   ( -- * VCS driver type
@@ -508,7 +505,7 @@ vcsGit =
           ]
         return
           [ monitorDirectoryExistence dir
-          | dir <- (primaryLocalDir : map snd secondaryRepos)
+          | dir <- primaryLocalDir : map snd secondaryRepos
           ]
 
     -- NOTE: Repositories are cloned once, but can be synchronized multiple times.
@@ -684,7 +681,7 @@ vcsHg =
           ]
         return
           [ monitorDirectoryExistence dir
-          | dir <- (primaryLocalDir : map snd secondaryRepos)
+          | dir <- primaryLocalDir : map snd secondaryRepos
           ]
     vcsSyncRepo verbosity hgProg repo localDir = do
       exists <- doesDirectoryExist localDir
@@ -700,7 +697,7 @@ vcsHg =
               { progInvokeCwd = Just cwd
               }
         cloneArgs =
-          ["clone", "--noupdate", (srpLocation repo), localDir]
+          ["clone", "--noupdate", srpLocation repo, localDir]
             ++ verboseArg
         verboseArg = ["--quiet" | verbosityLevel verbosity < Verbosity.Normal]
         checkoutArgs =
@@ -878,7 +875,7 @@ vcsPijul =
           ]
         return
           [ monitorDirectoryExistence dir
-          | dir <- (primaryLocalDir : map snd secondaryRepos)
+          | dir <- primaryLocalDir : map snd secondaryRepos
           ]
 
     vcsSyncRepo verbosity pijulProg SourceRepositoryPackage{..} localDir peer = do

@@ -1,8 +1,5 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Distribution.Types.LocalBuildConfig
@@ -188,6 +185,10 @@ data BuildOptions = BuildOptions
   -- ^ Whether to enable library program coverage
   , relocatable :: Bool
   -- ^ Whether to build a relocatable package
+  , programPrefix :: Maybe PathTemplate
+  -- ^ Installed executable prefix
+  , programSuffix :: Maybe PathTemplate
+  -- ^ Installed executable suffix
   }
   deriving (Eq, Generic, Read, Show)
 
@@ -229,4 +230,6 @@ buildOptionsConfigFlags (BuildOptions{..}) =
     , configStripExes = toFlag stripExes
     , configStripLibs = toFlag stripLibs
     , configDebugInfo = toFlag withDebugInfo
+    , configProgPrefix = maybeToFlag programPrefix
+    , configProgSuffix = maybeToFlag programSuffix
     }

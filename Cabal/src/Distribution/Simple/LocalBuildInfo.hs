@@ -1,9 +1,5 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RankNTypes #-}
-
------------------------------------------------------------------------------
 
 -- |
 -- Module      :  Distribution.Simple.LocalBuildInfo
@@ -286,7 +282,7 @@ depLibraryPaths
         | (uid, _) <- componentPackageDeps clbi
         , -- Test that it's internal
         sub_target <- allTargetsInBuildOrder' pkgDescr lbi
-        , componentUnitId (targetCLBI (sub_target)) == uid
+        , componentUnitId (targetCLBI sub_target) == uid
         ]
       internalLibs =
         [ getLibDir (targetCLBI sub_target)
@@ -473,7 +469,7 @@ substPathTemplate
   (LocalBuildInfo{compiler = comp, hostPlatform = plat})
   uid =
     fromPathTemplate
-      . (InstallDirs.substPathTemplate env)
+      . InstallDirs.substPathTemplate env
     where
       env =
         initialPathTemplateEnv

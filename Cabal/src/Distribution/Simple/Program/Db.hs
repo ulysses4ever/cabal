@@ -1,8 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RankNTypes #-}
-
------------------------------------------------------------------------------
-
 -- |
 -- Module      :  Distribution.Simple.Program.Db
 -- Copyright   :  Isaac Jones 2006, Duncan Coutts 2007-2009
@@ -33,6 +28,7 @@ module Distribution.Simple.Program.Db
     -- ** Query and manipulate the program db
   , addKnownProgram
   , addKnownPrograms
+  , clearUnconfiguredPrograms
   , prependProgramSearchPath
   , prependProgramSearchPathNoLogging
   , lookupKnownProgram
@@ -70,6 +66,8 @@ module Distribution.Simple.Program.Db
   , updatePathProgDb
   ) where
 
+import Control.Monad ((<=<))
+import Data.Functor ((<&>))
 import Distribution.Compat.Prelude
 import Prelude ()
 
@@ -201,6 +199,14 @@ addKnownProgram prog =
 addKnownPrograms :: [Program] -> ProgramDb -> ProgramDb
 addKnownPrograms progs progdb = foldl' (flip addKnownProgram) progdb progs
 
+-- | Drop all unconfigured programs from a 'ProgramDb', retaining only
+-- configured programs, the search path, and environment overrides.
+--
+-- This mirrors round-tripping via the @'Binary' 'ProgramDb'@ instance, which
+-- drops unconfigured programs.
+clearUnconfiguredPrograms :: ProgramDb -> ProgramDb
+clearUnconfiguredPrograms progdb = progdb{unconfiguredProgs = Map.empty}
+
 lookupKnownProgram :: String -> ProgramDb -> Maybe Program
 lookupKnownProgram name =
   fmap (\(p, _, _) -> p) . Map.lookup name . unconfiguredProgs
@@ -258,8 +264,14 @@ prependProgramSearchPathNoLogging
   -> ProgramDb
   -> ProgramDb
 prependProgramSearchPathNoLogging extraPaths extraEnv db =
-  let db' = modifyProgramSearchPath (nub . (map ProgramSearchPathDir extraPaths ++)) db
-      db'' = db'{progOverrideEnv = extraEnv ++ progOverrideEnv db'}
+  let db' =
+        if null extraPaths
+          then db -- skip work if nothing to do
+          else modifyProgramSearchPath (nub . (map ProgramSearchPathDir extraPaths ++)) db
+      db'' =
+        if null extraEnv
+          then db' -- skip work if nothing to do
+          else db'{progOverrideEnv = extraEnv ++ progOverrideEnv db'}
    in db''
 
 -- | User-specify this path.  Basically override any path information
@@ -329,7 +341,7 @@ userSpecifyArgss argss progdb =
 -- | Get the path that has been previously specified for a program, if any.
 userSpecifiedPath :: Program -> ProgramDb -> Maybe FilePath
 userSpecifiedPath prog =
-  join . fmap (\(_, p, _) -> p) . Map.lookup (programName prog) . unconfiguredProgs
+  (\(_, p, _) -> p) <=< (Map.lookup (programName prog) . unconfiguredProgs)
 
 -- | Get any extra args that have been previously specified for a program.
 userSpecifiedArgs :: Program -> ProgramDb -> [ProgArg]
@@ -407,7 +419,7 @@ configureUnconfiguredProgram verbosity prog progdb = do
   maybeLocation <- case userSpecifiedPath prog progdb of
     Nothing ->
       programFindLocation prog verbosity (progSearchPath progdb)
-        >>= return . fmap (swap . fmap FoundOnSystem . swap)
+        <&> fmap (swap . fmap FoundOnSystem . swap)
     Just path -> do
       absolute <- doesExecutableExist path
       if absolute
@@ -601,6 +613,5 @@ requireProgramVersion
   -> ProgramDb
   -> IO (ConfiguredProgram, Version, ProgramDb)
 requireProgramVersion verbosity prog range programDb =
-  join $
-    either (dieWithException verbosity) return
-      `fmap` lookupProgramVersion verbosity prog range programDb
+  either (dieWithException verbosity) return
+    =<< lookupProgramVersion verbosity prog range programDb

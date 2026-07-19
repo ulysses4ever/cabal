@@ -2,6 +2,7 @@
 module Main (main) where
 
 import Control.Lens     (imap)
+import Control.Monad    ((<=<))
 import Data.Aeson       (FromJSON (..), eitherDecode, withObject, (.:))
 import Data.List        (sortOn)
 import Data.Text        (Text)
@@ -37,6 +38,7 @@ main = generate =<< O.execParser opts where
         <*> licenses "3.23"
         <*> licenses "3.25"
         <*> licenses "3.26"
+        <*> licenses "3.28"
 
     template = O.strArgument $ mconcat
         [ O.metavar "SPDX.LicenseExceptionId.template.hs"
@@ -55,7 +57,7 @@ main = generate =<< O.execParser opts where
 
 generate :: Opts -> IO ()
 generate (Opts tmplFile fns out) = do
-    lss <- for fns $ \fn -> either fail pure . eitherDecode =<< LBS.readFile fn
+    lss <- for fns (either fail pure . eitherDecode <=< LBS.readFile)
     template <- Z.parseAndCompileTemplateIO tmplFile
     output <- generate' lss template
     writeFile out (header <> "\n" <> output)

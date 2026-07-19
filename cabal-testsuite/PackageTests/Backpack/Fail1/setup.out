@@ -5,3 +5,4 @@ Error:
         MissingReq
     In mixins: Fail1:sig requires (MissingReq as A)
     In the stanza library
+    CallStack (from HasCallStack): <SNIPPED>

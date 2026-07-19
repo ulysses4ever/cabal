@@ -55,7 +55,6 @@ instance Applicative Lex where
   (<*>) = ap
 
 instance Monad Lex where
-  return = pure
   (>>=) = thenLex
 
 data LexResult a = LexResult {-# UNPACK #-} !LexState a
@@ -149,7 +148,7 @@ returnLex a = Lex $ \s -> LexResult s a
 
 {-# INLINE thenLex #-}
 thenLex :: Lex a -> (a -> Lex b) -> Lex b
-(Lex m) `thenLex` k = Lex $ \s -> case m s of LexResult s' a -> (unLex (k a)) s'
+(Lex m) `thenLex` k = Lex $ \s -> case m s of LexResult s' a -> unLex (k a) s'
 
 setPos :: Position -> Lex ()
 setPos pos = Lex $ \s -> LexResult s{curPos = pos} ()

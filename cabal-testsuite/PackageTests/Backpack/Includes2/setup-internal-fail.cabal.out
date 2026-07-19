@@ -13,3 +13,4 @@ Error:
                            brought into scope by mixins: fail:postgresql (Database.PostgreSQL as Database)
       While filling requirements of build-depends: fail:mylib
     In the stanza library
+    CallStack (from HasCallStack): <SNIPPED>

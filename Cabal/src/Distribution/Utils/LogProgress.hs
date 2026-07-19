@@ -1,6 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE Rank2Types #-}
-
 module Distribution.Utils.LogProgress
   ( LogProgress
   , runLogProgress
@@ -16,6 +13,7 @@ import Prelude ()
 import Distribution.Simple.Utils
 import Distribution.Utils.Progress
 import Distribution.Verbosity
+import GHC.Stack (HasCallStack, callStack, prettyCallStack)
 import System.IO (hFlush, hPutStr, hPutStrLn)
 import Text.PrettyPrint
 
@@ -40,7 +38,6 @@ instance Applicative LogProgress where
   LogProgress f <*> LogProgress x = LogProgress $ \r -> f r `ap` x r
 
 instance Monad LogProgress where
-  return = pure
   LogProgress m >>= f = LogProgress $ \r -> m r >>= \x -> unLogProgress (f x) r
 
 -- | Run 'LogProgress', outputting traces according to 'Verbosity',
@@ -87,10 +84,14 @@ infoProgress s = LogProgress $ \env ->
       InfoMsg s
 
 -- | Fail the computation with an error message.
-dieProgress :: Doc -> LogProgress a
+dieProgress :: HasCallStack => Doc -> LogProgress a
 dieProgress s = LogProgress $ \env ->
   failProgress $
-    hang (text "Error:") 4 (formatMsg (le_context env) s)
+    hang (text "Error:") 4 $
+      vcat
+        [ formatMsg (le_context env) s
+        , vcat (map text (lines (prettyCallStack callStack)))
+        ]
 
 -- | Format a message with context. (Something simple for now.)
 formatMsg :: [CtxMsg] -> Doc -> Doc

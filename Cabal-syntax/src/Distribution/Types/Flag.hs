@@ -1,8 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE TupleSections #-}
-
 module Distribution.Types.Flag
   ( -- * Package flag
     PackageFlag (..)
@@ -61,7 +56,7 @@ data PackageFlag = MkPackageFlag
 
 instance Binary PackageFlag
 instance Structured PackageFlag
-instance NFData PackageFlag where rnf = genericRnf
+instance NFData PackageFlag
 
 -- | A 'PackageFlag' initialized with default parameters.
 emptyFlag :: FlagName -> PackageFlag
@@ -159,7 +154,6 @@ instance Semigroup FlagAssignment where
 
 instance Monoid FlagAssignment where
   mempty = FlagAssignment Map.empty
-  mappend = (<>)
 
 -- | Construct a 'FlagAssignment' from a list of flag/value pairs.
 --

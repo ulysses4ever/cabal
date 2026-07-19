@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-
 module Distribution.Client.Types.Repo
   ( -- * Remote repository
     RemoteRepo (..)
@@ -194,7 +192,7 @@ data Repo
     -- Although this contains the same fields as 'RepoRemote', we use a separate
     -- constructor to avoid confusing the two.
     --
-    -- Not all access to a secure repo goes through the hackage-security
+    -- TODO: Not all access to a secure repo goes through the hackage-security
     -- library currently; code paths that do not still make use of the
     -- 'repoRemote' and 'repoLocalDir' fields directly.
     RepoSecure

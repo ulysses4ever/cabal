@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Distribution.Types.BenchmarkType
@@ -26,7 +24,7 @@ data BenchmarkType
 
 instance Binary BenchmarkType
 instance Structured BenchmarkType
-instance NFData BenchmarkType where rnf = genericRnf
+instance NFData BenchmarkType
 
 knownBenchmarkTypes :: [BenchmarkType]
 knownBenchmarkTypes = [benchmarkTypeExe]

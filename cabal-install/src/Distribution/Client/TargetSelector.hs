@@ -1,14 +1,7 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns #-}
-
------------------------------------------------------------------------------
-
------------------------------------------------------------------------------
 
 -- |
 -- Module      :  Distribution.Client.TargetSelector
@@ -100,7 +93,7 @@ import Control.Arrow ((&&&))
 import Control.Monad hiding
   ( mfilter
   )
-import Data.Bifunctor (second)
+import Data.Bifunctor (bimap, second)
 #if MIN_VERSION_base(4,20,0)
 import Data.Functor as UZ (unzip)
 #else
@@ -807,10 +800,9 @@ reportTargetSelectorProblems verbosity problems = do
           (showTargetSelector originalMatch)
           (showTargetSelectorKind originalMatch)
         $ map
-          ( \(rendering, matches) ->
-              ( showTargetString rendering
-              , (map (\match -> showTargetSelector match ++ " (" ++ showTargetSelectorKind match ++ ")") matches)
-              )
+          ( bimap
+              showTargetString
+              (map (\match -> showTargetSelector match ++ " (" ++ showTargetSelectorKind match ++ ")"))
           )
           renderingsAndMatches
 
@@ -834,10 +826,9 @@ reportTargetSelectorProblems verbosity problems = do
       dieWithException verbosity $
         TargetSelectorAmbiguousErr $
           map
-            ( \(target, amb) ->
-                ( showTargetString target
-                , (map (\(ut, bt) -> (showTargetString ut, showTargetSelectorKind bt)) amb)
-                )
+            ( bimap
+                showTargetString
+                (map (bimap showTargetString showTargetSelectorKind))
             )
             targets
 
@@ -2084,7 +2075,7 @@ guardPackageFile _ (FileStatusExistsFile file)
 guardPackageFile str _ = matchErrorExpected "package .cabal file" str
 
 matchPackage :: [KnownPackage] -> String -> FileStatus -> Match KnownPackage
-matchPackage pinfo = \str fstatus ->
+matchPackage pinfo str fstatus =
   orNoThingIn "project" "" $
     matchPackageName pinfo str
       </> ( matchPackageNameUnknown str
@@ -2093,7 +2084,7 @@ matchPackage pinfo = \str fstatus ->
           )
 
 matchPackageName :: [KnownPackage] -> String -> Match KnownPackage
-matchPackageName ps = \str -> do
+matchPackageName ps str = do
   guard (validPackageName str)
   orNoSuchThing
     "package"
@@ -2367,7 +2358,6 @@ instance Alternative Match where
   (<|>) = matchPlus
 
 instance Monad Match where
-  return = pure
   NoMatch d ms >>= _ = NoMatch d ms
   Match m d xs >>= f =
     -- To understand this, it needs to be read in context with the
@@ -2400,8 +2390,8 @@ infixl 3 </>
 --
 -- This operator is associative, has unit 'mzero' and is also commutative.
 matchPlus :: Match a -> Match a -> Match a
-matchPlus a@(Match _ _ _) (NoMatch _ _) = a
-matchPlus (NoMatch _ _) b@(Match _ _ _) = b
+matchPlus a@Match{} NoMatch{} = a
+matchPlus NoMatch{} b@Match{} = b
 matchPlus a@(NoMatch d_a ms_a) b@(NoMatch d_b ms_b)
   | d_a > d_b = a -- We only really make use of the depth in the NoMatch case.
   | d_a < d_b = b

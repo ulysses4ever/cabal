@@ -1,4 +1,4 @@
-Cabal-Version:      3.6
+Cabal-Version:      3.8
 
 Name:               cabal-install
 Version:            3.17.0.0
@@ -13,7 +13,7 @@ License:            BSD-3-Clause
 License-File:       LICENSE
 Author:             Cabal Development Team (see AUTHORS file)
 Maintainer:         Cabal Development Team <cabal-devel@haskell.org>
-Copyright:          2003-2025, Cabal Development Team
+Copyright:          2003-2026, Cabal Development Team
 Category:           Distribution
 Build-type:         Simple
 Extra-Source-Files:
@@ -33,11 +33,6 @@ Flag native-dns
     & [windns](https://hackage.haskell.org/package/windns) packages for performing DNS lookups
   default:      True
   manual:       True
-
-Flag lukko
-  description:  Use @lukko@ for file-locking
-  default:      False
-  manual:       False
 
 flag git-rev
   description: include Git revision hash in version
@@ -66,7 +61,7 @@ common warnings
 
 common base-dep
     build-depends:
-      , base >=4.13 && <4.23
+      , base >=4.17 && <4.23
 
 common cabal-dep
     build-depends:
@@ -82,8 +77,10 @@ common cabal-install-solver-dep
 
 library
     import: warnings, base-dep, cabal-dep, cabal-syntax-dep, cabal-install-solver-dep
-    default-language: Haskell2010
+    default-language: GHC2021
+    -- Disabling ImportQualifiedPost, otherwise fourmolu jumps ahead to apply it everywhere
     default-extensions: TypeOperators
+                        NoImportQualifiedPost
 
     hs-source-dirs:   src
     autogen-modules:
@@ -269,11 +266,11 @@ library
       , hackage-security >= 0.6.2.0 && < 0.7
       , text       >= 1.2.3    && < 1.3 || >= 2.0 && < 2.2
       , parsec     >= 3.1.13.0 && < 3.2
-      , open-browser >= 0.2.1.0 && < 0.5
+      , open-browser >= 0.2.1.0 && < 0.6
       , regex-base  >= 0.94.0.0 && <0.95
       , regex-posix >= 0.96.0.0 && <0.97
       , safe-exceptions >= 0.1.7.0 && < 0.2
-      , semaphore-compat >= 1.0.0 && < 1.1
+      , semaphore-compat >= 2.0.1 && < 2.1
 
     if flag(native-dns)
       if os(windows)
@@ -290,14 +287,14 @@ library
       build-depends:
         , unix >= 2.5 && < 2.8 || >= 2.8.6.0 && < 2.9
 
-    if flag(lukko)
-      build-depends:
-        , lukko >= 0.1 && <0.2
-
     -- pull in process version with fixed waitForProcess error
     if impl(ghc >=8.2)
       build-depends:
         , process >= 1.6.15.0
+
+    if os(darwin)
+      build-depends:
+        , process >= 1.6.29.0
 
     if flag(git-rev)
       build-depends: githash ^>= 0.1.7.0
@@ -310,7 +307,9 @@ executable cabal
     import: warnings, base-dep
     main-is: Main.hs
     hs-source-dirs: main
-    default-language: Haskell2010
+    default-language: GHC2021
+    -- Disabling ImportQualifiedPost, otherwise fourmolu jumps ahead to apply it everywhere
+    default-extensions: NoImportQualifiedPost
 
     ghc-options: -rtsopts -threaded
 
@@ -328,8 +327,10 @@ executable cabal
 --
 test-suite unit-tests
     import: warnings, base-dep, cabal-dep, cabal-syntax-dep, cabal-install-solver-dep
-    default-language: Haskell2010
+    default-language: GHC2021
+    -- Disabling ImportQualifiedPost, otherwise fourmolu jumps ahead to apply it everywhere
     default-extensions: TypeOperators
+                        NoImportQualifiedPost
     ghc-options: -rtsopts -threaded
 
     type: exitcode-stdio-1.0
@@ -393,12 +394,14 @@ test-suite unit-tests
       , tasty-expected-failure
       , tasty-hunit >= 0.10
       , tree-diff
-      , QuickCheck >= 2.14.3 && <2.18
+      , QuickCheck >= 2.14.3 && <2.19
 
 -- Tests for the project file parser
 test-suite parser-tests
     import: warnings, base-dep, cabal-dep, cabal-syntax-dep, cabal-install-solver-dep
-    default-language: Haskell2010
+    default-language: GHC2021
+    -- Disabling ImportQualifiedPost, otherwise fourmolu jumps ahead to apply it everywhere
+    default-extensions: NoImportQualifiedPost
     ghc-options: -rtsopts -threaded
 
     type: exitcode-stdio-1.0
@@ -424,7 +427,9 @@ test-suite mem-use-tests
   type: exitcode-stdio-1.0
   main-is: MemoryUsageTests.hs
   hs-source-dirs: tests
-  default-language: Haskell2010
+  default-language: GHC2021
+  -- Disabling ImportQualifiedPost, otherwise fourmolu jumps ahead to apply it everywhere
+  default-extensions: NoImportQualifiedPost
 
   ghc-options: -threaded -rtsopts "-with-rtsopts=-M16M -K1K"
 
@@ -449,7 +454,9 @@ test-suite integration-tests2
   type: exitcode-stdio-1.0
   main-is: IntegrationTests2.hs
   hs-source-dirs: tests
-  default-language: Haskell2010
+  default-language: GHC2021
+  -- Disabling ImportQualifiedPost, otherwise fourmolu jumps ahead to apply it everywhere
+  default-extensions: NoImportQualifiedPost
 
   build-depends:
     , bytestring
@@ -470,7 +477,9 @@ test-suite long-tests
   type: exitcode-stdio-1.0
   hs-source-dirs: tests
   main-is: LongTests.hs
-  default-language: Haskell2010
+  default-language: GHC2021
+  -- Disabling ImportQualifiedPost, otherwise fourmolu jumps ahead to apply it everywhere
+  default-extensions: NoImportQualifiedPost
 
   other-modules:
     UnitTests.Distribution.Client.ArbitraryInstances
@@ -499,5 +508,5 @@ test-suite long-tests
     , tasty-expected-failure
     , tasty-hunit >= 0.10
     , tasty-quickcheck <0.12
-    , QuickCheck >= 2.14 && <2.18
+    , QuickCheck >= 2.14 && <2.19
     , pretty-show >= 1.6.15

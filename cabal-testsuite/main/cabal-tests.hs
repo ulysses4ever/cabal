@@ -1,6 +1,4 @@
 {-# LANGUAGE NondecreasingIndentation #-}
-{-# LANGUAGE ScopedTypeVariables      #-}
-{-# LANGUAGE TypeApplications         #-}
 
 import Test.Cabal.Workdir
 import Test.Cabal.Script
@@ -167,7 +165,7 @@ buildCabalLibsProject projString verb mbGhc dir = do
   case filter (prettyShow pv `isInfixOf`) storesByGhc of
     [] -> return [final_package_db]
     storeForGhc:_ -> do
-      let storePackageDB = (storeRoot </> storeForGhc </> "package.db")
+      let storePackageDB = storeRoot </> storeForGhc </> "package.db"
       return [storePackageDB, final_package_db]
 
 

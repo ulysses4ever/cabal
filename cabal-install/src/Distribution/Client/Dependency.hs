@@ -140,6 +140,7 @@ import Distribution.Verbosity
   )
 import Distribution.Version
 
+import Distribution.Simple.Utils (ordNub)
 import Distribution.Solver.Types.ComponentDeps (ComponentDeps)
 import qualified Distribution.Solver.Types.ComponentDeps as CD
 import Distribution.Solver.Types.ConstraintSource
@@ -452,6 +453,14 @@ dependOnWiredIns compiler params = addConstraints extraConstraints params
         ConstraintSourceNonReinstallablePackage
       | (pkgName, unitId) <- fromMaybe [] $ compilerInfoWiredInUnitIds compiler
       ]
+        ++
+        -- Old versions of `base` must be excluded from build plans still as they do not depend on any version of a wired-in unit.
+        -- If we do not do this then we will get confusing error messages about old versions of `base` being unbuildable.
+        -- Newer versions of `base` will be handled gracefully as they were designed to be reinstallable.
+        [ LabeledPackageConstraint
+            (PackageConstraint (ScopeAnyQualifier $ mkPackageName "base") (PackagePropertyVersion (orLaterVersion (mkVersion [4, 22]))))
+            ConstraintSourceNonReinstallablePackage
+        ]
 
 -- | Some packages are specific to a given compiler version and should never be
 -- reinstalled.
@@ -965,7 +974,7 @@ interpretPackagesPreference selected defaultPref prefs =
       Map.findWithDefault [] pkgname stanzasPrefs
     stanzasPrefs =
       Map.fromListWith
-        (\a b -> nub (a ++ b))
+        (\a b -> ordNub (a ++ b))
         [ (pkgname, pref)
         | PackageStanzasPreference pkgname pref <- prefs
         ]

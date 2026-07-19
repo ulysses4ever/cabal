@@ -1,12 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TupleSections #-}
-
------------------------------------------------------------------------------
 
 -- |
 -- Module      :  Distribution.Simple.Build
@@ -254,7 +249,7 @@ build_setupHooks
 checkSemaphoreSupport
   :: Verbosity -> Compiler -> BuildFlags -> IO ()
 checkSemaphoreSupport verbosity comp flags = do
-  unless (jsemSupported comp || (isNothing (flagToMaybe (buildUseSemaphore flags)))) $
+  unless (jsemSupported comp || isNothing (flagToMaybe (buildUseSemaphore flags))) $
     dieWithException verbosity CheckSemaphoreSupport
 
 -- | Write available build information for 'LocalBuildInfo' to disk.
@@ -560,7 +555,7 @@ buildComponent
           -- Don't register inplace if we're only building a single component;
           -- it's not necessary because there won't be any subsequent builds
           -- that need to tag us
-          if (not (oneComponentRequested (componentEnabledSpec lbi)))
+          if not (oneComponentRequested (componentEnabledSpec lbi))
             then do
               -- Register the library in-place, so exes can depend
               -- on internally defined libraries.
@@ -578,7 +573,7 @@ buildComponent
                     lib'
                     lbi
                     clbi
-              debug verbosity $ "Registering inplace:\n" ++ (IPI.showInstalledPackageInfo installedPkgInfo)
+              debug verbosity $ "Registering inplace:\n" ++ IPI.showInstalledPackageInfo installedPkgInfo
               registerPackage
                 verbosity
                 (compiler lbi)
@@ -888,13 +883,12 @@ testSuiteLibV09AsLibAndExe
       -- that exposes the relevant test suite library.
       deps =
         (IPI.installedUnitId ipi, mungedId ipi)
-          : ( filter
-                ( \(_, x) ->
-                    let name = prettyShow $ mungedName x
-                     in name == "Cabal" || name == "base"
-                )
-                (componentPackageDeps clbi)
+          : filter
+            ( \(_, x) ->
+                let name = prettyShow $ mungedName x
+                 in name == "Cabal" || name == "base"
             )
+            (componentPackageDeps clbi)
       exeClbi =
         ExeComponentLocalBuildInfo
           { -- TODO: this is a hack, but as long as this is unique

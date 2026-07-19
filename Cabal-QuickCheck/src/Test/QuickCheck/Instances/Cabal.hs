@@ -1,5 +1,4 @@
 {-# LANGUAGE CPP           #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 module Test.QuickCheck.Instances.Cabal () where
 
@@ -65,7 +64,7 @@ instance Arbitrary PackageName where
     arbitrary = mkPackageName . intercalate "-" <$> shortListOf1 2 nameComponent
       where
         nameComponent = shortListOf1 5 (elements packageChars)
-                        `suchThat` (liftA2 (&&) (not . all isDigit) (/= "all"))
+                        `suchThat` liftA2 (&&) (not . all isDigit) (/= "all")
         packageChars  = filter isAlphaNum ['\0'..'\127']
 
 instance Arbitrary PackageIdentifier where

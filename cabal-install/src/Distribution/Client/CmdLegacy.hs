@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
@@ -39,7 +38,7 @@ import qualified Data.Text as T
 -- Tweaked versions of code from Main.
 regularCmd :: HasVerbosity flags => CommandUI flags -> (flags -> [String] -> globals -> IO action) -> CommandSpec (globals -> IO action)
 regularCmd ui action =
-  CommandSpec ui ((flip commandAddAction) (\flags extra globals -> action flags extra globals)) NormalCommand
+  CommandSpec ui (`commandAddAction` (\flags extra globals -> action flags extra globals)) NormalCommand
 
 wrapperCmd
   :: Monoid flags

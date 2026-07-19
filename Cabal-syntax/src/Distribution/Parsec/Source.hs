@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveGeneric #-}
-
 module Distribution.Parsec.Source
   ( PSource (..)
   , CabalFileSource (..)
@@ -42,4 +39,4 @@ instance Eq src => Eq (PSource src) where
   _ == _ = False
 
 instance Binary src => Binary (PSource src)
-instance NFData src => NFData (PSource src) where rnf = genericRnf
+instance NFData src => NFData (PSource src)

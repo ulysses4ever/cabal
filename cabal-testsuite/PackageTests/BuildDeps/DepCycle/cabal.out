@@ -5,3 +5,4 @@ Error:
         library bar
         library foo
     In the inplace package 'DepCycle-1.0'
+    CallStack (from HasCallStack): <SNIPPED>

@@ -1,6 +1,5 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE RankNTypes #-}
 
 module Distribution.Simple.GHC.Build.Link where
 
@@ -26,7 +25,13 @@ import Distribution.Simple.BuildPaths
 import Distribution.Simple.Compiler
 import Distribution.Simple.Errors
 import Distribution.Simple.GHC.Build.Modules
-import Distribution.Simple.GHC.Build.Utils (exeTargetName, flibBuildName, flibTargetName, withDynFLib)
+import Distribution.Simple.GHC.Build.Utils
+  ( exeTargetName
+  , flibBuildName
+  , flibTargetName
+  , objectFilePath
+  , withDynFLib
+  )
 import Distribution.Simple.GHC.ImplInfo
 import qualified Distribution.Simple.GHC.Internal as Internal
 import Distribution.Simple.LocalBuildInfo
@@ -53,7 +58,6 @@ import System.Directory
   )
 import System.FilePath
   ( isRelative
-  , replaceExtension
   )
 
 -- | Links together the object files of the Haskell modules and extra sources
@@ -109,9 +113,9 @@ linkOrLoadComponent
     cleanedExtraLibDirsStatic <- liftIO $ filterM (doesDirectoryExist . i) (extraLibDirsStatic bi)
 
     let
-      extraSourcesObjs :: [RelativePath Artifacts File]
+      extraSourcesObjs :: [SymbolicPath Pkg File]
       extraSourcesObjs =
-        [ makeRelativePathEx $ getSymbolicPath src `replaceExtension` objExtension
+        [ objectFilePath buildTargetDir objExtension src
         | src <- extraSources
         ]
 
@@ -140,11 +144,7 @@ linkOrLoadComponent
                   else cleanedExtraLibDirs
           , ghcOptLinkFrameworks = toNubListR $ map getSymbolicPath $ PD.frameworks bi
           , ghcOptLinkFrameworkDirs = toNubListR $ PD.extraFrameworkDirs bi
-          , ghcOptInputFiles =
-              toNubListR
-                [ coerceSymbolicPath $ buildTargetDir </> obj
-                | obj <- extraSourcesObjs
-                ]
+          , ghcOptInputFiles = toNubListR extraSourcesObjs
           , ghcOptNoLink = Flag False
           , ghcOptRPaths = rpaths
           }
@@ -173,8 +173,8 @@ linkOrLoadComponent
               -- TODO: The repl doesn't use the runtime paths from linkerOpts
               -- (ghcOptRPaths), which looks like a bug. After the refactor we
               -- can fix this.
-              `mappend` linkerOpts mempty
-              `mappend` mempty
+              <> linkerOpts mempty
+              <> mempty
                 { ghcOptMode = toFlag GhcModeInteractive
                 , ghcOptOptimisation = toFlag GhcNoOptimisation
                 }
@@ -294,21 +294,8 @@ linkLibrary buildTargetDir cleanedExtraLibDirs verbosity runGhcProg lib lbi clbi
             buildTargetDir
             hs_ext
             True
-        , pure $ map (srcObjPath obj_ext) extraSources
+        , pure $ map (objectFilePath buildTargetDir obj_ext) extraSources
         ]
-
-    -- Get the @.o@ path from a source path (e.g. @.hs@),
-    -- in the library target build directory.
-    srcObjPath :: String -> SymbolicPath Pkg File -> SymbolicPath Pkg File
-    srcObjPath obj_ext srcPath =
-      case symbolicPathRelative_maybe objPath of
-        -- Absolute path: should already be in the target build directory
-        -- (e.g. a preprocessed file)
-        -- TODO: assert this?
-        Nothing -> objPath
-        Just objRelPath -> coerceSymbolicPath buildTargetDir </> objRelPath
-      where
-        objPath = srcPath `replaceExtensionSymbolicPath` obj_ext
 
     -- I'm fairly certain that, just like the executable, we can keep just the
     -- module input list, and point to the right sources dir (as is already
@@ -445,7 +432,7 @@ linkLibrary buildTargetDir cleanedExtraLibDirs verbosity runGhcProg lib lbi clbi
 -- | Link the executable resulting from building this component, be it an
 -- executable, test, or benchmark component.
 linkExecutable
-  :: (GhcOptions)
+  :: GhcOptions
   -- ^ The linker-specific GHC options
   -> (BuildWay, BuildWay -> GhcOptions)
   -- ^ The wanted build ways and corresponding GhcOptions that were
@@ -463,8 +450,8 @@ linkExecutable linkerOpts (way, buildOpts) targetDir targetName runGhcProg lbi =
   let baseOpts = buildOpts way
       linkOpts =
         baseOpts
-          `mappend` linkerOpts
-          `mappend` mempty
+          <> linkerOpts
+          <> mempty
             { -- If there are no input Haskell files we pass -no-hs-main, and
               -- assume there is a main function in another non-haskell object
               ghcOptLinkNoHsMain = toFlag (ghcOptInputFiles baseOpts == mempty && ghcOptInputScripts baseOpts == mempty)
@@ -481,7 +468,7 @@ linkFLib
   :: ForeignLib
   -> BuildInfo
   -> LocalBuildInfo
-  -> (GhcOptions)
+  -> GhcOptions
   -- ^ The linker-specific GHC options
   -> (BuildWay, BuildWay -> GhcOptions)
   -- ^ The wanted build ways and corresponding GhcOptions that were
@@ -527,10 +514,10 @@ linkFLib flib bi lbi linkerOpts (way, buildOpts) targetDir runGhcProg = do
     linkOpts :: GhcOptions
     linkOpts = case foreignLibType flib of
       ForeignLibNativeShared ->
-        (buildOpts way)
-          `mappend` linkerOpts
-          `mappend` rtsLinkOpts
-          `mappend` mempty
+        buildOpts way
+          <> linkerOpts
+          <> rtsLinkOpts
+          <> mempty
             { ghcOptLinkNoHsMain = toFlag True
             , ghcOptShared = toFlag True
             , ghcOptFPic = toFlag True

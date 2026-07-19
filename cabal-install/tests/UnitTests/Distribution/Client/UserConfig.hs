@@ -6,7 +6,7 @@ module UnitTests.Distribution.Client.UserConfig
 
 import Control.Exception (bracket)
 import Control.Monad (replicateM_)
-import Data.List (nub, sort)
+import Data.List (sort)
 import System.Directory
   ( doesFileExist
   , getCurrentDirectory
@@ -21,7 +21,7 @@ import Test.Tasty.HUnit
 import Distribution.Client.Config
 import Distribution.Client.Setup (GlobalFlags (..), InstallFlags (..))
 import Distribution.Simple.Setup (ConfigFlags (..), fromFlag, pattern Flag)
-import Distribution.Simple.Utils (removeFileForcibly, withTempDirectory)
+import Distribution.Simple.Utils (ordNub, removeFileForcibly, withTempDirectory)
 import Distribution.Utils.NubList (fromNubList)
 import Distribution.Verbosity
 
@@ -59,7 +59,7 @@ canUpdateConfig = bracketTest $ \configFile -> do
   userConfigUpdate (mkVerbosity defaultVerbosityHandles silent) (globalFlags configFile) []
   -- Load it again.
   updated <- loadConfig (mkVerbosity defaultVerbosityHandles silent) (Flag configFile)
-  assertBool ("Field 'tests' should be True") $
+  assertBool "Field 'tests' should be True" $
     fromFlag (configTests $ savedConfigureFlags updated)
 
 doubleUpdateConfig :: Assertion
@@ -71,11 +71,11 @@ doubleUpdateConfig = bracketTest $ \configFile -> do
   -- Load it again.
   updated <- loadConfig (mkVerbosity defaultVerbosityHandles silent) (Flag configFile)
 
-  assertBool ("Field 'remote-repo' doesn't contain duplicates") $
+  assertBool "Field 'remote-repo' doesn't contain duplicates" $
     listUnique (map show . fromNubList . globalRemoteRepos $ savedGlobalFlags updated)
-  assertBool ("Field 'extra-prog-path' doesn't contain duplicates") $
+  assertBool "Field 'extra-prog-path' doesn't contain duplicates" $
     listUnique (map show . fromNubList . configProgramPathExtra $ savedConfigureFlags updated)
-  assertBool ("Field 'build-summary' doesn't contain duplicates") $
+  assertBool "Field 'build-summary' doesn't contain duplicates" $
     listUnique (map show . fromNubList . installSummaryFile $ savedInstallFlags updated)
 
 newDefaultConfig :: Assertion
@@ -93,7 +93,7 @@ globalFlags configFile = mempty{globalConfigFile = Flag configFile}
 listUnique :: Ord a => [a] -> Bool
 listUnique xs =
   let sorted = sort xs
-   in nub sorted == xs
+   in ordNub sorted == xs
 
 bracketTest :: (FilePath -> IO ()) -> Assertion
 bracketTest =

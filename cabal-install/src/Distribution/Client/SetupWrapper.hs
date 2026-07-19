@@ -1,10 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 {- FOURMOLU_DISABLE -}
@@ -173,6 +170,9 @@ import Distribution.Simple.SetupHooks.HooksMain
   ( hooksVersion )
 import Distribution.Client.SetupHooks.CallHooksExe
   ( externalSetupHooksABI, hooksProgFilePath )
+
+import Control.Concurrent.STM (TVar, readTVarIO)
+import qualified Data.ByteString.Lazy as BS
 import Data.List (foldl1')
 import Data.Kind (Type, Constraint)
 import qualified Data.Map.Lazy as Map
@@ -180,11 +180,10 @@ import Data.Type.Equality  ( type (==) )
 import Data.Type.Bool      ( If )
 import System.Directory (doesFileExist)
 import System.FilePath ((<.>), (</>))
+import Data.Functor ((<&>))
 import System.IO (Handle, hPutStr)
 import System.Process (StdStream (..))
 import qualified System.Process as Process
-
-import qualified Data.ByteString.Lazy as BS
 
 #ifdef mingw32_HOST_OS
 import Distribution.Simple.Utils
@@ -195,6 +194,8 @@ import System.Directory    ( doesDirectoryExist )
 import System.FilePath     ( equalFilePath, takeDirectory, takeFileName )
 import qualified System.Win32 as Win32
 #endif
+
+--------------------------------------------------------------------------------
 
 data AllowInLibrary
   = AllowInLibrary
@@ -244,6 +245,7 @@ data InLibraryArgs (flags :: Type) where
   InLibraryConfigureArgs
     :: ElaboratedSharedConfig
     -> ElaboratedReadyPackage
+    -> TVar InstalledPackageIndex
     -> InLibraryArgs ConfigFlags
   InLibraryPostConfigureArgs
     :: SPostConfigurePhase flags
@@ -367,8 +369,8 @@ data SetupScriptOptions = SetupScriptOptions
     -- overhead, we use a shared setup script cache
     -- ('$XDG_CACHE_HOME/cabal/setup-exe-cache'). For each (compiler, platform, Cabal
     -- version) combination the cache holds a compiled setup script
-    -- executable. This only affects the Simple build type; for the Custom,
-    -- Configure and Make build types we always compile the setup script anew.
+    -- executable. This only affects the Simple build type; for the Custom
+    -- and Configure build types we always compile the setup script anew.
     setupCacheLock :: Maybe Lock
   , isInteractive :: Bool
   -- ^ Is the task we are going to run an interactive foreground task,
@@ -463,7 +465,7 @@ getSetup verbosity options mpkg allowInLibrary = do
     mbWorkDir = useWorkingDir options
     getPkg =
       (tryFindPackageDesc verbosity mbWorkDir >>= readGenericPackageDescription verbosity mbWorkDir . relativeSymbolicPath)
-        >>= return . packageDescription
+        <&> packageDescription
 
 -- | Decide if we're going to be able to do a direct internal call to the
 -- entry point in the Cabal library or if we're going to have to compile
@@ -613,8 +615,8 @@ setupWrapper
   -> IO (SetupRunnerRes setupSpec)
 setupWrapper verbosity options mpkg cmd getCommonFlags getFlags getExtraArgs wrapperArgs = do
   let allowInLibrary = case wrapperArgs of
-        NotInLibrary -> Don'tAllowInLibrary
         InLibraryArgs {} -> AllowInLibrary
+        NotInLibrary -> Don'tAllowInLibrary
   ASetup (setup :: Setup kind) <- getSetup verbosity options mpkg allowInLibrary
   let version = setupVersion setup
   flags <- getFlags version
@@ -643,22 +645,35 @@ setupWrapper verbosity options mpkg cmd getCommonFlags getFlags getExtraArgs wra
       case wrapperArgs of
         InLibraryArgs libArgs ->
           case libArgs of
-            InLibraryConfigureArgs elabSharedConfig elabReadyPkg -> do
-              -- See (1)(a) in Note [Constructing the ProgramDb]
+            InLibraryConfigureArgs elabSharedConfig elabReadyPkg ipiTVar -> do
+              -- Start from the pre-configured compiler ProgramDb, augmented
+              -- with all builtin programs (restored as unconfigured).
+              -- This ensures:
+              --   (a) configureAllKnownPrograms inside configureFinal skips
+              --       compiler programs (already configured at project level),
+              --   (b) builtin preprocessors like alex and happy are present as
+              --       unconfigured programs, so configureFinal's
+              --       configureAllKnownPrograms can find them using the
+              --       per-package search path (respecting extra-prog-path).
+              -- See (1) in Note [Constructing the ProgramDb].
+
+              -- Apply per-package user-supplied program args/paths.
+              -- See (2)(a) in Note [Constructing the ProgramDb]
               baseProgDb <-
+                -- Use 'mkProgramDb' to pass user-supplied per-package
+                -- program options (--PROG-options=...).
+                mkProgramDb verbHandles flags
+                  (restoreProgramDb builtinPrograms $
+                    pkgConfigCompilerProgs elabSharedConfig)
+              setupProgDb <-
                 prependProgramSearchPath verbosity
                   (useExtraPathEnv options)
-                  (useExtraEnvOverrides options) =<<
-                  mkProgramDb verbHandles flags -- Passes user-supplied arguments to e.g. GHC
-                    (restoreProgramDb builtinPrograms $
-                      useProgramDb options) -- Recall that 'useProgramDb' is set to 'pkgConfigCompilerProgs'
-              -- See (2) in Note [Constructing the ProgramDb]
-              setupProgDb <-
-                configCompilerProgDb
-                  verbosity
-                  (pkgConfigCompiler elabSharedConfig)
+                  (useExtraEnvOverrides options)
                   baseProgDb
-                  Nothing -- we use configProgramPaths instead
+              -- Read the project InstalledPackageIndex to avoid needing to query
+              -- @ghc-pkg@ to obtain it.
+              -- in Distribution.Client.ProjectBuilding.
+              ipi <- readTVarIO ipiTVar
               lbi0 <-
                 InLibrary.configure
                   (InLibrary.libraryConfigureInputsFromElabPackage
@@ -667,11 +682,12 @@ setupWrapper verbosity options mpkg cmd getCommonFlags getFlags getExtraArgs wra
                      setupProgDb
                      elabSharedConfig
                      elabReadyPkg
+                     ipi
                      extraArgs
                   )
                   flags
               let progs0 = LBI.withPrograms lbi0
-              -- See (1)(b) in Note [Constructing the ProgramDb]
+              -- See (2)(b) in Note [Constructing the ProgramDb]
               progs1 <- updatePathProgDb verbosity progs0
               let
                   lbi =
@@ -716,7 +732,24 @@ includes the call to 'configCompilerEx'.
 To obtain a program database with all the required information, we do a few
 things:
 
-  (1)
+  (1) We retrieve the pre-configured compiler program database (typically
+      containing ghc, ghc-pkg, haddock, and toolchain programs such as ar, ld),
+      and restore all builtin programs (alex, happy, hsc2hs, ...) as unconfigured
+      entries on top of it.
+
+      This serves two purposes:
+
+        (a) The compiler programs (ghc, ghc-pkg, haddock, hsc2hs, ...) that were
+            already configured at the project level appear in 'configuredProgs'.
+            The 'configureAllKnownPrograms' call inside the Cabal per-package
+            'configureFinal' skips them, saving redundant work.
+
+        (b) Builtin preprocessors (e.g. alex, happy) are NOT configured at the
+            project level; restoring them here means the call to
+            'configureAllKnownPrograms' in 'configureFinal' can find them using
+            the per-package search path (including 'extra-prog-path').
+
+  (2)
     (a) When building a package with internal build tools, we must ensure that
         these build tools are available in PATH, with appropriate environment
         variable overrides for their data directory. To do this, we call
@@ -725,12 +758,6 @@ things:
     (b) Moreover, these programs must be available in the search paths for the
         compiler itself, in case they are run at compile-time (e.g. with a Template
         Haskell splice). We achieve this using 'updatePathProgDb'.
-
-  (2) Given the compiler, we must compute the ProgramDb of programs that are
-      specified alongside the compiler, such as ghc-pkg, haddock, and toolchain
-      programs such as ar, ld.
-
-      We do this using the function 'configCompilerProgDb'.
 -}
 
 -- ------------------------------------------------------------
@@ -816,7 +843,7 @@ externalSetupMethod path verbosity options _ args NotInLibrary =
 
 useCachedSetupExecutable :: BuildType -> Bool
 useCachedSetupExecutable bt =
-  bt == Simple || bt == Configure || bt == Make
+  bt == Simple || bt == Configure
 
 data ExternalExe = HooksExe | SetupExe
 data WantedExternalExe (meth :: ExternalExe) where
@@ -971,7 +998,7 @@ buildTypeScript bt cabalLibVersion = "{-# LANGUAGE NoImplicitPrelude #-}\n" <> c
     -> "import Distribution.Simple; main = defaultMainWithHooks autoconfUserHooks\n"
     | otherwise
     -> "import Distribution.Simple; main = defaultMainWithHooks defaultUserHooks\n"
-  Make -> "import Distribution.Make; main = defaultMain\n"
+  Make -> error "buildtypeScript Make is no longer supported"
   Hooks
     | cabalLibVersion >= mkVersion [3, 13, 0]
     -> "import Distribution.Simple; import SetupHooks; main = defaultMainWithSetupHooks setupHooks\n"

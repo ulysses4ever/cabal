@@ -1,8 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-
 module Distribution.Types.GenericPackageDescription
   ( GenericPackageDescription (..)
   , emptyGenericPackageDescription
@@ -78,7 +73,7 @@ instance Package GenericPackageDescription where
 
 instance Binary GenericPackageDescription
 instance Structured GenericPackageDescription
-instance NFData GenericPackageDescription where rnf = genericRnf
+instance NFData GenericPackageDescription
 
 emptyGenericPackageDescription :: GenericPackageDescription
 emptyGenericPackageDescription = GenericPackageDescription emptyPackageDescription Nothing [] Nothing [] [] [] [] []

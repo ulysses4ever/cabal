@@ -1,9 +1,5 @@
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE QuantifiedConstraints #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
 
 module Distribution.FieldGrammar.Class
@@ -121,7 +117,7 @@ class
 
   -- | Monoidal field.
   --
-  -- Values are combined with 'mappend'.
+  -- Values are combined with '(<>)'.
   --
   -- /Note:/ 'optionalFieldAla' is a @monoidalField@ with 'Last' monoid.
   monoidalFieldAla
@@ -221,7 +217,7 @@ optionalFieldDef
   -> g s a
 optionalFieldDef fn l x = optionalFieldDefAla fn Identity l x
 
--- | Field which can be define multiple times, and the results are @mappend@ed.
+-- | Field which can be define multiple times, and the results are combined with '(<>)'.
 monoidalField
   :: (FieldGrammar c g, c (Identity a), Monoid a)
   => FieldName

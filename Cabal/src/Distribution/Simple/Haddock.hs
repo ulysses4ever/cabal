@@ -1,13 +1,7 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-
------------------------------------------------------------------------------
 
 -- |
 -- Module      :  Distribution.Simple.Haddock
@@ -156,6 +150,7 @@ data HaddockArgs = HaddockArgs
   -- ^ haddock's `--use-unicode` flag
   }
   deriving (Generic)
+  deriving (Semigroup, Monoid) via Generically HaddockArgs
 
 -- | The FilePath of a directory, it's a monoid under '(</>)'.
 newtype Directory = Dir {unDir' :: FilePath} deriving (Read, Show, Eq, Ord)
@@ -334,7 +329,7 @@ haddock_setupHooks
           pkg_descr
           lbi
           suffixes
-          (defaultHscolourFlags `mappend` haddockToHscolour flags)
+          (defaultHscolourFlags <> haddockToHscolour flags)
 
     targets <- readTargetInfos verbosity pkg_descr lbi (haddockTargets flags)
 
@@ -369,7 +364,7 @@ haddock_setupHooks
         mons <- preBuildComponent (preBuildHook pbci) verbosity lbi' target
         preprocessComponent pkg_descr component lbi' clbi False verbosity suffixes
         let
-          doExe com = case (compToExe com) of
+          doExe com = case compToExe com of
             Just exe -> do
               exeArgs <-
                 fromExecutable
@@ -445,7 +440,7 @@ haddock_setupHooks
 
             debug verbosity $
               "Registering inplace:\n"
-                ++ (InstalledPackageInfo.showInstalledPackageInfo ipi)
+                ++ InstalledPackageInfo.showInstalledPackageInfo ipi
 
             registerPackage
               verbosity
@@ -1267,11 +1262,10 @@ renderPureArgs version comp platform args =
         []
         ( (: [])
             . ("--title=" ++)
-            . ( bool
-                  id
-                  (++ " (internal documentation)")
-                  (getAny $ argIgnoreExports args)
-              )
+            . bool
+              id
+              (++ " (internal documentation)")
+              (getAny $ argIgnoreExports args)
         )
         . flagToMaybe
         . argTitle
@@ -1639,16 +1633,8 @@ haddockToHscolour flags =
 
 -- ------------------------------------------------------------------------------
 -- Boilerplate Monoid instance.
-instance Monoid HaddockArgs where
-  mempty = gmempty
-  mappend = (<>)
-
-instance Semigroup HaddockArgs where
-  (<>) = gmappend
-
 instance Monoid Directory where
   mempty = Dir "."
-  mappend = (<>)
 
 instance Semigroup Directory where
   Dir m <> Dir n = Dir $ m </> n

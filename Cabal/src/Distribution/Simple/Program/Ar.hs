@@ -1,10 +1,6 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NondecreasingIndentation #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
-
------------------------------------------------------------------------------
 
 -- |
 -- Module      :  Distribution.Simple.Program.Ar
@@ -142,7 +138,7 @@ createArLibArchive verbosity lbi targetPath files = do
 
         invokeWithResponseFile :: FilePath -> ProgramInvocation
         invokeWithResponseFile atFile =
-          (ar $ simpleArgs ++ extraArgs ++ ['@' : atFile])
+          ar $ simpleArgs ++ extraArgs ++ ['@' : atFile]
 
     if oldVersionManualOverride || responseArgumentsNotSupported
       then

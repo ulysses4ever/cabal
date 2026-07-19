@@ -1,10 +1,5 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TupleSections #-}
-
------------------------------------------------------------------------------
-
------------------------------------------------------------------------------
 
 -- |
 -- Module      :  Distribution.Client.Install
@@ -229,6 +224,7 @@ import Distribution.Utils.Path hiding
 import Distribution.Simple.Utils
   ( VerboseException
   , createDirectoryIfMissingVerbose
+  , ordNub
   , writeFileAtomic
   )
 import Distribution.Simple.Utils as Utils
@@ -274,6 +270,7 @@ import Distribution.Version
   , foldVersionRange
   )
 
+import Data.Bifunctor (bimap)
 import qualified Data.ByteString as BS
 import Data.Foldable (fold)
 import Distribution.Client.Errors
@@ -712,7 +709,7 @@ pruneInstallPlan pkgSpecifiers =
         ++ "required by a dependency of one of the other targets."
       where
         pkgids =
-          nub
+          ordNub
             [ depid
             | SolverInstallPlan.PackageMissingDeps _ depids <- problems
             , depid <- depids
@@ -929,7 +926,7 @@ printPlan dryRun verbosity plan sourcePkgDb = case plan of
 
     showPkg (pkg, _) =
       prettyShow (packageId pkg)
-        ++ showLatest (pkg)
+        ++ showLatest pkg
 
     showPkgAndReason (ReadyPackage pkg', pr) =
       unwords
@@ -954,7 +951,7 @@ printPlan dryRun verbosity plan sourcePkgDb = case plan of
     showLatest pkg = case mLatestVersion of
       Just latestVersion ->
         if packageVersion pkg < latestVersion
-          then ("(latest: " ++ prettyShow latestVersion ++ ")")
+          then "(latest: " ++ prettyShow latestVersion ++ ")"
           else ""
       Nothing -> ""
       where
@@ -1354,7 +1351,7 @@ printBuildFailures verbosity buildOutcomes =
     failed ->
       dieWithException verbosity $
         SomePackagesFailedToInstall $
-          map (\(pkgid, reason) -> (prettyShow pkgid, printFailureReason reason)) failed
+          map (bimap prettyShow printFailureReason) failed
   where
     printFailureReason reason = case reason of
       GracefulFailure msg -> msg
@@ -1431,7 +1428,7 @@ performInstallations
     )
   installedPkgIndex
   installPlan = do
-    info verbosity $ "Number of threads used: " ++ (show numJobs) ++ "."
+    info verbosity $ "Number of threads used: " ++ show numJobs ++ "."
 
     jobControl <-
       if parallelInstall
@@ -1874,7 +1871,7 @@ installUnpackedPackage
           filterConfigureFlags
             configFlags'
               { configCommonFlags =
-                  (configCommonFlags (configFlags'))
+                  (configCommonFlags configFlags')
                     { setupVerbosity = toFlag $ verbosityFlags verbosity'
                     }
               }

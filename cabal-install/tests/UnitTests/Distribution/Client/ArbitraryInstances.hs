@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -150,7 +149,7 @@ instance Arbitrary ShortToken where
   arbitrary =
     ShortToken
       <$> ( shortListOf1 5 (choose ('#', '~'))
-              `suchThat` (all (`notElem` "{}"))
+              `suchThat` all (`notElem` "{}")
               `suchThat` (not . ("[]" `isPrefixOf`))
           )
 

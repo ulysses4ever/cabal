@@ -1,11 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
------------------------------------------------------------------------------
 {-
 Work around this warning:
 libraries/Cabal/Distribution/Simple.hs:78:0:
@@ -38,8 +33,7 @@ libraries/Cabal/Distribution/Simple.hs:78:0:
 -- simple software.
 --
 -- The original idea was that there could be different build systems that all
--- presented the same compatible command line interfaces. There is still a
--- "Distribution.Make" system but in practice no packages use it.
+-- presented the same compatible command line interfaces.
 module Distribution.Simple
   ( module Distribution.Package
   , module Distribution.Version
@@ -824,8 +818,8 @@ sanityCheckHookedBuildInfo verbosity pkg_descr (_, hookExes)
   | exe1 : _ <- nonExistent =
       dieWithException verbosity $ SanityCheckHookedBuildInfo exe1
   where
-    pkgExeNames = nub (map exeName (executables pkg_descr))
-    hookExeNames = nub (map fst hookExes)
+    pkgExeNames = ordNub (map exeName (executables pkg_descr))
+    hookExeNames = ordNub (map fst hookExes)
     nonExistent = hookExeNames \\ pkgExeNames
 sanityCheckHookedBuildInfo _ _ _ = return ()
 

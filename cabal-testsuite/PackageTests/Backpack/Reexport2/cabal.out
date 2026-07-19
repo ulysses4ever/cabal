@@ -8,3 +8,4 @@ Error:
         nor any of its 'build-depends' dependencies.
     In the stanza 'library'
     In the inplace package 'Reexport2-1.0'
+    CallStack (from HasCallStack): <SNIPPED>

@@ -1,6 +1,4 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RankNTypes #-}
 
 module Distribution.Simple.GHCJS
   ( getGhcInfo
@@ -385,7 +383,7 @@ toPackageIndex verbosity pkgss progdb = do
         [ PackageIndex.fromList (map (Internal.substTopDir topDir) pkgs)
         | (_, pkgs) <- pkgss
         ]
-  return $! (mconcat indices)
+  return $! mconcat indices
   where
     ghcjsProg = fromMaybe (error "GHCJS.toPackageIndex no ghcjs program") $ lookupProgram ghcjsProgram progdb
 
@@ -576,7 +574,7 @@ buildOrReplLib mReplFlags verbosity numJobs _pkg_descr lbi lib clbi = do
   -- modules?
   let cLikeFiles = fromNubListR $ toNubListR (cSources libBi) <> toNubListR (cxxSources libBi)
       jsSrcs = jsSources libBi
-      cObjs = map ((`replaceExtensionSymbolicPath` objExtension)) cLikeFiles
+      cObjs = map (`replaceExtensionSymbolicPath` objExtension) cLikeFiles
       baseOpts = componentGhcOptions (verbosityLevel verbosity) lbi libBi clbi libTargetDir
       linkJsLibOpts =
         mempty
@@ -590,17 +588,17 @@ buildOrReplLib mReplFlags verbosity numJobs _pkg_descr lbi lib clbi = do
           }
       vanillaOptsNoJsLib =
         baseOpts
-          `mappend` mempty
+          <> mempty
             { ghcOptMode = toFlag GhcModeMake
             , ghcOptNumJobs = numJobs
             , ghcOptInputModules = toNubListR $ allLibModules lib clbi
             , ghcOptHPCDir = hpcdir Hpc.Vanilla
             }
-      vanillaOpts = vanillaOptsNoJsLib `mappend` linkJsLibOpts
+      vanillaOpts = vanillaOptsNoJsLib <> linkJsLibOpts
 
       profOpts =
         adjustExts "p_hi" "p_o" vanillaOpts
-          `mappend` mempty
+          <> mempty
             { ghcOptProfilingMode = toFlag True
             , ghcOptProfilingAuto =
                 Internal.profDetailLevelFlag
@@ -614,7 +612,7 @@ buildOrReplLib mReplFlags verbosity numJobs _pkg_descr lbi lib clbi = do
 
       sharedOpts =
         adjustExts "dyn_hi" "dyn_o" vanillaOpts
-          `mappend` mempty
+          <> mempty
             { ghcOptDynLinkMode = toFlag GhcDynamicOnly
             , ghcOptFPic = toFlag True
             , --  ghcOptHiSuffix    = toFlag "dyn_hi",
@@ -625,7 +623,7 @@ buildOrReplLib mReplFlags verbosity numJobs _pkg_descr lbi lib clbi = do
 
       vanillaSharedOpts =
         vanillaOpts
-          `mappend` mempty
+          <> mempty
             { ghcOptDynLinkMode = toFlag GhcStaticAndDynamic
             , ghcOptDynHiSuffix = toFlag "js_dyn_hi"
             , ghcOptDynObjSuffix = toFlag "js_dyn_o"
@@ -673,11 +671,11 @@ buildOrReplLib mReplFlags verbosity numJobs _pkg_descr lbi lib clbi = do
                  vanillaCxxOpts = if isGhcjsDynamic
                                   then baseCxxOpts { ghcOptFPic = toFlag True }
                                   else baseCxxOpts
-                 profCxxOpts    = vanillaCxxOpts `mappend` mempty {
+                 profCxxOpts    = vanillaCxxOpts <> mempty {
                                     ghcOptProfilingMode = toFlag True,
                                     ghcOptObjSuffix     = toFlag "p_o"
                                   }
-                 sharedCxxOpts  = vanillaCxxOpts `mappend` mempty {
+                 sharedCxxOpts  = vanillaCxxOpts <> mempty {
                                    ghcOptFPic        = toFlag True,
                                    ghcOptDynLinkMode = toFlag GhcDynamicOnly,
                                    ghcOptObjSuffix   = toFlag "dyn_o"
@@ -710,11 +708,11 @@ buildOrReplLib mReplFlags verbosity numJobs _pkg_descr lbi lib clbi = do
                                  -- with -fPIC for REPL to work. See #2207.
                                  then baseCcOpts { ghcOptFPic = toFlag True }
                                  else baseCcOpts
-                 profCcOpts    = vanillaCcOpts `mappend` mempty {
+                 profCcOpts    = vanillaCcOpts <> mempty {
                                    ghcOptProfilingMode = toFlag True,
                                    ghcOptObjSuffix     = toFlag "p_o"
                                  }
-                 sharedCcOpts  = vanillaCcOpts `mappend` mempty {
+                 sharedCcOpts  = vanillaCcOpts <> mempty {
                                    ghcOptFPic        = toFlag True,
                                    ghcOptDynLinkMode = toFlag GhcDynamicOnly,
                                    ghcOptObjSuffix   = toFlag "dyn_o"
@@ -740,7 +738,7 @@ buildOrReplLib mReplFlags verbosity numJobs _pkg_descr lbi lib clbi = do
     info verbosity "Linking..."
     let cSharedObjs =
           map
-            ((`replaceExtensionSymbolicPath` ("dyn_" ++ objExtension)))
+            (`replaceExtensionSymbolicPath` ("dyn_" ++ objExtension))
             (cSources libBi ++ cxxSources libBi)
         compiler_id = compilerId (compiler lbi)
         sharedLibFilePath = libTargetDir </> makeRelativePathEx (mkSharedLibName (hostPlatform lbi) compiler_id uid)
@@ -1273,8 +1271,8 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
       inputModules = inputSourceModules buildSources
       isGhcDynamic = isDynamic comp
       dynamicTooSupported = supportsDynamicToo comp
-      cObjs = map ((`replaceExtensionSymbolicPath` objExtension)) cSrcs
-      cxxObjs = map ((`replaceExtensionSymbolicPath` objExtension)) cxxSrcs
+      cObjs = map (`replaceExtensionSymbolicPath` objExtension) cSrcs
+      cxxObjs = map (`replaceExtensionSymbolicPath` objExtension) cxxSrcs
       needDynamic = gbuildNeedDynamic lbi bm
       needProfiling = withProfExe lbi
 
@@ -1286,8 +1284,8 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
         TestComponentLocalBuildInfo{} -> True
         BenchComponentLocalBuildInfo{} -> True
       baseOpts =
-        (componentGhcOptions (verbosityLevel verbosity) lbi bnfo clbi tmpDir)
-          `mappend` mempty
+        componentGhcOptions (verbosityLevel verbosity) lbi bnfo clbi tmpDir
+          <> mempty
             { ghcOptMode = toFlag GhcModeMake
             , ghcOptInputFiles =
                 toNubListR $
@@ -1309,13 +1307,13 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
             }
       staticOpts =
         baseOpts
-          `mappend` mempty
+          <> mempty
             { ghcOptDynLinkMode = toFlag GhcStaticOnly
             , ghcOptHPCDir = hpcdir Hpc.Vanilla
             }
       profOpts =
         baseOpts
-          `mappend` mempty
+          <> mempty
             { ghcOptProfilingMode = toFlag True
             , ghcOptProfilingAuto =
                 Internal.profDetailLevelFlag
@@ -1328,7 +1326,7 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
             }
       dynOpts =
         baseOpts
-          `mappend` mempty
+          <> mempty
             { ghcOptDynLinkMode = toFlag GhcDynamicOnly
             , -- TODO: Does it hurt to set -fPIC for executables?
               ghcOptFPic = toFlag True
@@ -1339,7 +1337,7 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
             }
       dynTooOpts =
         staticOpts
-          `mappend` mempty
+          <> mempty
             { ghcOptDynLinkMode = toFlag GhcStaticAndDynamic
             , ghcOptDynHiSuffix = toFlag "dyn_hi"
             , ghcOptDynObjSuffix = toFlag "dyn_o"
@@ -1377,8 +1375,8 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
           -- the one invocation, so that one has to include all the
           -- linker stuff too, like -l flags and any .o files from C
           -- files etc.
-          `mappend` linkerOpts
-          `mappend` mempty
+          <> linkerOpts
+          <> mempty
             { ghcOptMode = toFlag GhcModeInteractive
             , ghcOptOptimisation = toFlag GhcNoOptimisation
             }
@@ -1442,7 +1440,7 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
     sequence_
       [ do
         let baseCxxOpts =
-              (Internal.splitCandCxxOptions Internal.CxxProgram (verbosityLevel verbosity) lbi bnfo clbi odir filename)
+              Internal.splitCandCxxOptions Internal.CxxProgram (verbosityLevel verbosity) lbi bnfo clbi odir filename
             vanillaCxxOpts =
               if isGhcDynamic
                 then -- Dynamic GHC requires C++ sources to be built
@@ -1451,12 +1449,12 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
                 else baseCxxOpts
             profCxxOpts =
               vanillaCxxOpts
-                `mappend` mempty
+                <> mempty
                   { ghcOptProfilingMode = toFlag True
                   }
             sharedCxxOpts =
               vanillaCxxOpts
-                `mappend` mempty
+                <> mempty
                   { ghcOptFPic = toFlag True
                   , ghcOptDynLinkMode = toFlag GhcDynamicOnly
                   }
@@ -1482,7 +1480,7 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
     sequence_
       [ do
         let baseCcOpts =
-              (Internal.splitCandCxxOptions Internal.CcProgram (verbosityLevel verbosity) lbi bnfo clbi tmpDir filename)
+              Internal.splitCandCxxOptions Internal.CcProgram (verbosityLevel verbosity) lbi bnfo clbi tmpDir filename
             vanillaCcOpts =
               if isGhcDynamic
                 then -- Dynamic GHC requires C sources to be built
@@ -1491,12 +1489,12 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
                 else baseCcOpts
             profCcOpts =
               vanillaCcOpts
-                `mappend` mempty
+                <> mempty
                   { ghcOptProfilingMode = toFlag True
                   }
             sharedCcOpts =
               vanillaCcOpts
-                `mappend` mempty
+                <> mempty
                   { ghcOptFPic = toFlag True
                   , ghcOptDynLinkMode = toFlag GhcDynamicOnly
                   }
@@ -1521,11 +1519,11 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
     GBuildExe _ -> do
       let linkOpts =
             commonOpts
-              `mappend` linkerOpts
-              `mappend` mempty
+              <> linkerOpts
+              <> mempty
                 { ghcOptLinkNoHsMain = toFlag (null inputFiles)
                 }
-              `mappend` (if withDynExe lbi then dynLinkerOpts else mempty)
+              <> (if withDynExe lbi then dynLinkerOpts else mempty)
 
       info verbosity "Linking..."
       -- Work around old GHCs not relinking in this
@@ -1548,9 +1546,9 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
           linkOpts = case foreignLibType flib of
             ForeignLibNativeShared ->
               commonOpts
-                `mappend` linkerOpts
-                `mappend` dynLinkerOpts
-                `mappend` mempty
+                <> linkerOpts
+                <> dynLinkerOpts
+                <> mempty
                   { ghcOptLinkNoHsMain = toFlag True
                   , ghcOptShared = toFlag True
                   , ghcOptLinkLibs = rtsOptLinkLibs
@@ -1754,14 +1752,14 @@ libAbiHash verbosity _pkg_descr lbi lib clbi = do
     platform = hostPlatform lbi
     mbWorkDir = mbWorkDirLBI lbi
     vanillaArgs =
-      (componentGhcOptions (verbosityLevel verbosity) lbi libBi clbi (componentBuildDir lbi clbi))
-        `mappend` mempty
+      componentGhcOptions (verbosityLevel verbosity) lbi libBi clbi (componentBuildDir lbi clbi)
+        <> mempty
           { ghcOptMode = toFlag GhcModeAbiHash
           , ghcOptInputModules = toNubListR $ exposedModules lib
           }
     sharedArgs =
       vanillaArgs
-        `mappend` mempty
+        <> mempty
           { ghcOptDynLinkMode = toFlag GhcDynamicOnly
           , ghcOptFPic = toFlag True
           , ghcOptHiSuffix = toFlag "js_dyn_hi"
@@ -1770,7 +1768,7 @@ libAbiHash verbosity _pkg_descr lbi lib clbi = do
           }
     profArgs =
       vanillaArgs
-        `mappend` mempty
+        <> mempty
           { ghcOptProfilingMode = toFlag True
           , ghcOptProfilingAuto =
               Internal.profDetailLevelFlag
@@ -1803,7 +1801,7 @@ componentGhcOptions
 componentGhcOptions verbosity lbi bi clbi odir =
   let opts = Internal.componentGhcOptions verbosity lbi bi clbi odir
    in opts
-        { ghcOptExtra = ghcOptExtra opts `mappend` hcOptions GHCJS bi
+        { ghcOptExtra = ghcOptExtra opts <> hcOptions GHCJS bi
         }
 
 -- -----------------------------------------------------------------------------
@@ -1899,7 +1897,7 @@ installLib verbosity lbi targetDir dynlibTargetDir _bytecodeTargetDir _builtDir 
     whenVanilla $ do
       sequence_
         [ installOrdinary builtDir' targetDir (toJSLibName $ mkGenericStaticLibName (l ++ f))
-        | l <- getHSLibraryName (componentUnitId clbi) : (extraBundledLibs (libBuildInfo lib))
+        | l <- getHSLibraryName (componentUnitId clbi) : extraBundledLibs (libBuildInfo lib)
         , f <- "" : extraLibFlavours (libBuildInfo lib)
         ]
     -- whenGHCi $ installOrdinary builtDir targetDir (toJSLibName ghciLibName)
@@ -1967,7 +1965,7 @@ installLib verbosity lbi targetDir dynlibTargetDir _bytecodeTargetDir _builtDir 
 adjustExts :: String -> String -> GhcOptions -> GhcOptions
 adjustExts hiSuf objSuf opts =
   opts
-    `mappend` mempty
+    <> mempty
       { ghcOptHiSuffix = toFlag hiSuf
       , ghcOptObjSuffix = toFlag objSuf
       }

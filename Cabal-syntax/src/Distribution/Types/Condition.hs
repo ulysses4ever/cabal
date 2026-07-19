@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
-
 module Distribution.Types.Condition
   ( Condition (..)
   , cNot
@@ -58,8 +55,8 @@ instance Foldable Condition where
   f `foldMap` Var c = f c
   _ `foldMap` Lit _ = mempty
   f `foldMap` CNot c = foldMap f c
-  f `foldMap` COr c d = foldMap f c `mappend` foldMap f d
-  f `foldMap` CAnd c d = foldMap f c `mappend` foldMap f d
+  f `foldMap` COr c d = foldMap f c <> foldMap f d
+  f `foldMap` CAnd c d = foldMap f c <> foldMap f d
 
 instance Traversable Condition where
   f `traverse` Var c = Var `fmap` f c
@@ -73,8 +70,6 @@ instance Applicative Condition where
   (<*>) = ap
 
 instance Monad Condition where
-  return = pure
-
   -- Terminating cases
   (>>=) (Lit x) _ = Lit x
   (>>=) (Var x) f = f x
@@ -85,22 +80,21 @@ instance Monad Condition where
 
 instance Monoid (Condition a) where
   mempty = Lit False
-  mappend = (<>)
 
 instance Semigroup (Condition a) where
   (<>) = COr
 
 instance Alternative Condition where
   empty = mempty
-  (<|>) = mappend
+  (<|>) = (<>)
 
 instance MonadPlus Condition where
   mzero = mempty
-  mplus = mappend
+  mplus = (<>)
 
 instance Binary c => Binary (Condition c)
 instance Structured c => Structured (Condition c)
-instance NFData c => NFData (Condition c) where rnf = genericRnf
+instance NFData c => NFData (Condition c)
 
 -- | Simplify the condition and return its free variables.
 simplifyCondition

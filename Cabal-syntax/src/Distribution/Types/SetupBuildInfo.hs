@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
-
 module Distribution.Types.SetupBuildInfo
   ( SetupBuildInfo (..)
   ) where
@@ -29,11 +26,10 @@ data SetupBuildInfo = SetupBuildInfo
 
 instance Binary SetupBuildInfo
 instance Structured SetupBuildInfo
-instance NFData SetupBuildInfo where rnf = genericRnf
+instance NFData SetupBuildInfo
 
 instance Monoid SetupBuildInfo where
   mempty = SetupBuildInfo [] False
-  mappend = (<>)
 
 instance Semigroup SetupBuildInfo where
   a <> b =

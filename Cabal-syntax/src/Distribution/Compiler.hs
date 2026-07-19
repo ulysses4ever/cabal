@@ -1,9 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveTraversable #-}
-
------------------------------------------------------------------------------
-
 -- |
 -- Module      :  Distribution.Compiler
 -- Copyright   :  Isaac Jones 2003-2004
@@ -83,7 +77,7 @@ data CompilerFlavor
 
 instance Binary CompilerFlavor
 instance Structured CompilerFlavor
-instance NFData CompilerFlavor where rnf = genericRnf
+instance NFData CompilerFlavor
 
 knownCompilerFlavors :: [CompilerFlavor]
 knownCompilerFlavors =
@@ -164,7 +158,6 @@ instance Semigroup a => Semigroup (PerCompilerFlavor a) where
 
 instance Monoid a => Monoid (PerCompilerFlavor a) where
   mempty = PerCompilerFlavor mempty mempty
-  mappend = (<>)
 
 -- ------------------------------------------------------------
 
@@ -177,7 +170,7 @@ data CompilerId = CompilerId CompilerFlavor Version
 
 instance Binary CompilerId
 instance Structured CompilerId
-instance NFData CompilerId where rnf = genericRnf
+instance NFData CompilerId
 
 instance Pretty CompilerId where
   pretty (CompilerId f v)

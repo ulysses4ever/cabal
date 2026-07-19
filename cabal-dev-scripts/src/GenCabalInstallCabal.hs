@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 module Main (main) where
 
 import Control.Exception  (SomeException (..), catch, displayException)
@@ -19,7 +17,7 @@ withIO k = do
                 putStrLn $ "Exception: " ++ displayException e
                 exitFailure
         _         -> do
-            putStrLn "Usage cabal run ... source.temeplate.ext target.ext"
+            putStrLn "Usage cabal run ... source.template.ext target.ext"
             exitFailure
   where
     parseBool "True"  = Just True

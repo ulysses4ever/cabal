@@ -1,8 +1,6 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE RankNTypes #-}
 
 -- |
 -- Module      :  Distribution.Simple.Setup.Common
@@ -93,16 +91,10 @@ data CommonSetupFlags = CommonSetupFlags
   -- after the @cabal repl@ command exits.
   }
   deriving (Eq, Show, Read, Generic)
+  deriving (Semigroup, Monoid) via Generically CommonSetupFlags
 
 instance Binary CommonSetupFlags
 instance Structured CommonSetupFlags
-
-instance Semigroup CommonSetupFlags where
-  (<>) = gmappend
-
-instance Monoid CommonSetupFlags where
-  mempty = gmempty
-  mappend = (<>)
 
 defaultCommonSetupFlags :: CommonSetupFlags
 defaultCommonSetupFlags =
@@ -142,8 +134,7 @@ commonSetupOptions showOrParseArgs =
   , option
       ""
       ["keep-temp-files"]
-      ( "Keep temporary files."
-      )
+      "Keep temporary files."
       setupKeepTempFiles
       (\keepTempFiles flags -> flags{setupKeepTempFiles = keepTempFiles})
       trueArg

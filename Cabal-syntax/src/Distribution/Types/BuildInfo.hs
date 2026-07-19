@@ -1,6 +1,4 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
 
 module Distribution.Types.BuildInfo
   ( BuildInfo (..)
@@ -28,6 +26,7 @@ import Distribution.Utils.Path
 
 import Distribution.Compiler
 import Distribution.ModuleName
+import Distribution.Utils.Generic (ordNub)
 import Language.Haskell.Extension
 
 -- Consider refactoring into executable and library versions.
@@ -150,7 +149,7 @@ data BuildInfo = BuildInfo
 
 instance Binary BuildInfo
 instance Structured BuildInfo
-instance NFData BuildInfo where rnf = genericRnf
+instance NFData BuildInfo
 
 instance Monoid BuildInfo where
   mempty =
@@ -204,7 +203,6 @@ instance Monoid BuildInfo where
       , targetBuildDepends = []
       , mixins = []
       }
-  mappend = (<>)
 
 instance Semigroup BuildInfo where
   a <> b =
@@ -259,8 +257,8 @@ instance Semigroup BuildInfo where
       , mixins = combine mixins
       }
     where
-      combine field = field a `mappend` field b
-      combineNub field = nub (combine field)
+      combine field = field a <> field b
+      combineNub field = ordNub (combine field)
       combineMby field = field b `mplus` field a
 
 emptyBuildInfo :: BuildInfo

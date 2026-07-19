@@ -1,8 +1,6 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ViewPatterns #-}
 
 -- |
@@ -114,6 +112,7 @@ data HaddockFlags = HaddockFlags
   , haddockUseUnicode :: Flag Bool
   }
   deriving (Show, Generic)
+  deriving (Semigroup, Monoid) via Generically HaddockFlags
 
 pattern HaddockCommonFlags
   :: Flag VerbosityFlags
@@ -380,13 +379,6 @@ haddockOptions showOrParseArgs =
 emptyHaddockFlags :: HaddockFlags
 emptyHaddockFlags = mempty
 
-instance Monoid HaddockFlags where
-  mempty = gmempty
-  mappend = (<>)
-
-instance Semigroup HaddockFlags where
-  (<>) = gmappend
-
 -- ------------------------------------------------------------
 
 -- * HaddocksFlags flags
@@ -440,6 +432,7 @@ data HaddockProjectFlags = HaddockProjectFlags
   , haddockProjectUseUnicode :: Flag Bool
   }
   deriving (Show, Generic)
+  deriving (Semigroup, Monoid) via Generically HaddockProjectFlags
 
 defaultHaddockProjectFlags :: HaddockProjectFlags
 defaultHaddockProjectFlags =
@@ -631,10 +624,3 @@ haddockProjectOptions showOrParseArgs =
 
 emptyHaddockProjectFlags :: HaddockProjectFlags
 emptyHaddockProjectFlags = mempty
-
-instance Monoid HaddockProjectFlags where
-  mempty = gmempty
-  mappend = (<>)
-
-instance Semigroup HaddockProjectFlags where
-  (<>) = gmappend
