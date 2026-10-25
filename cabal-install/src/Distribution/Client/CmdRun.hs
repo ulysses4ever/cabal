@@ -126,8 +126,11 @@ import Distribution.Utils.NubList
   ( fromNubList
   )
 import Distribution.Verbosity
-  ( normal
+  ( modifyVerbosityFlags
+  , normal
   , silent
+  , verboseNoStderr
+  , verboseStderr
   )
 import GHC.Environment
   ( getFullArgs
@@ -207,7 +210,7 @@ runAction flags targetAndArgs globalFlags = do
       GlobalContext -> return (ctx, normal)
       ScriptContext path exemeta -> (,silent) <$> updateContextAndWriteProjectFile ctx path exemeta
 
-    let verbosity = cfgVerbosity defaultVerbosity flags
+    let verbosity = modifyVerbosityFlags verboseStderr $ cfgVerbosity defaultVerbosity flags
 
     buildCtx <-
       runProjectPreBuildPhase verbosity baseCtx $ \elaboratedPlan -> do
@@ -343,7 +346,7 @@ runAction flags targetAndArgs globalFlags = do
       then notice verbosity "Running of executable suppressed by flag(s)"
       else
         runProgramInvocation
-          verbosity
+          (modifyVerbosityFlags verboseNoStderr verbosity)
           emptyProgramInvocation
             { progInvokePath = exePath
             , progInvokeArgs = args
